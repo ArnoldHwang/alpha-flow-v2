@@ -520,14 +520,6 @@
     "marketCapGroup": "mega"
   },
   {
-    "symbol": "ABB",
-    "assetType": "stock",
-    "sector": "industrial",
-    "themes": ["robotics", "automation", "factory"],
-    "betaType": "quality_growth",
-    "marketCapGroup": "large"
-  },
-  {
     "symbol": "ROK",
     "assetType": "stock",
     "sector": "industrial",

@@ -13,6 +13,7 @@ from config.scanner_config import (
     END_DATE,
     RAW_DATA_PATH,
     TIMEFRAMES,
+    DROP_INCOMPLETE_CANDLES,
 )
 
 # =========================================
@@ -232,7 +233,12 @@ def fetch_yahoo(symbol, interval):
 
         dedup[key] = candle
 
-    return list(dedup.values())
+    rows = list(dedup.values())
+
+    if DROP_INCOMPLETE_CANDLES and interval == "1d":
+        rows = [row for row in rows if row.get("isComplete")]
+
+    return rows
 
 
 # =========================================

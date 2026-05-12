@@ -11,7 +11,7 @@ import pandas as pd
 # CONFIG
 # =====================================
 
-INPUT_DIR = "data/survivability"
+INPUT_PATH = "data/survivability_profiles/_latest_timeframe_profiles.json"
 OUTPUT_DIR = "data/live_states"
 
 SUMMARY_OUTPUT_PATH = os.path.join(
@@ -254,10 +254,10 @@ def classify_live_state(row: Dict[str, Any]) -> str:
     if fail >= 75:
         return "LIVE_FAILURE_RISK"
 
-    if breakout >= 70 and reacc >= 65:
+    if breakout >= 58 and reacc >= 65:
         return "LIVE_REACCELERATION"
 
-    if breakout >= 72:
+    if breakout >= 60:
         return "LIVE_BREAKOUT"
 
     if continuation >= 68 and fail <= 45:
@@ -372,22 +372,57 @@ def main() -> None:
     print("🧠 BUILD LIVE STATE ENGINE")
     print("=================================")
 
-    if not os.path.exists(INPUT_DIR):
-        raise FileNotFoundError(f"Input directory not found: {INPUT_DIR}")
+    if not os.path.exists(INPUT_PATH):
+        raise FileNotFoundError(f"Input file not found: {INPUT_PATH}")
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    files = sorted(glob(os.path.join(INPUT_DIR, "*.json")))
+    profile_rows = load_json_records(INPUT_PATH)
 
-    files = [f for f in files if not os.path.basename(f).startswith("_")]
-
-    if not files:
-        raise FileNotFoundError(f"No survivability json files found: {INPUT_DIR}")
+    if not profile_rows:
+        raise ValueError(f"No profile rows found: {INPUT_PATH}")
 
     results = []
 
-    for path in files:
-        results.append(process_file(path))
+    for row in profile_rows:
+        if row.get("status") != "OK":
+            continue
+
+        live_metrics = build_live_metrics(row)
+        row.update(live_metrics)
+
+        row["liveState"] = classify_live_state(row)
+        row["liveBias"] = classify_live_bias(row)
+
+        results.append(
+            {
+                "symbol": safe_state(row.get("symbol")),
+                "date": safe_state(row.get("latestDate")),
+                "continuationSurvivabilityScore": row.get(
+                    "continuationSurvivabilityScore"
+                ),
+                "continuationSurvivabilityGrade": row.get(
+                    "continuationSurvivabilityGrade"
+                ),
+                "tacticalBurstScore": row.get("tacticalBurstScore"),
+                "swingContinuationScore": row.get("swingContinuationScore"),
+                "institutionalSurvivabilityScore": row.get(
+                    "institutionalSurvivabilityScore"
+                ),
+                "failureRiskScore": row.get("failureRiskScore"),
+                "timeframeProfile": row.get("timeframeProfile"),
+                "dailyContinuationState": row.get("dailyContinuationState"),
+                "trajectoryState": row.get("trajectoryState"),
+                "finalHierarchyState": row.get("finalHierarchyState"),
+                "liveBreakoutPressure": row.get("liveBreakoutPressure"),
+                "liveReaccelerationSignal": row.get("liveReaccelerationSignal"),
+                "liveFailurePressure": row.get("liveFailurePressure"),
+                "liveContinuationPressure": row.get("liveContinuationPressure"),
+                "liveState": row.get("liveState"),
+                "liveBias": row.get("liveBias"),
+                "status": "OK",
+            }
+        )
 
     save_json(SUMMARY_OUTPUT_PATH, results)
 

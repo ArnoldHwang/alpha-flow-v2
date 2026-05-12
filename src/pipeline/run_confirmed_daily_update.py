@@ -10,48 +10,61 @@ ROOT = Path(__file__).resolve().parents[2]
 
 STEPS = [
     {
+        "name": "COLLECT MTF RAW DATA",
+        "cmd": [sys.executable, "src/scanner/collect_yahoo_mtf.py"],
+        "required": True,
+    },
+    {
         "name": "BUILD TIMEFRAME STATES",
-        "cmd": ["python", "src/states/build_timeframe_states.py"],
+        "cmd": [sys.executable, "src/states/build_timeframe_states.py"],
         "required": True,
     },
     {
         "name": "BUILD HIERARCHY STATES",
-        "cmd": ["python", "src/hierarchy/build_hierarchy_states.py"],
+        "cmd": [sys.executable, "src/hierarchy/build_hierarchy_states.py"],
         "required": True,
     },
     {
         "name": "BUILD STATE TRAJECTORY",
-        "cmd": ["python", "src/trajectory/build_state_trajectory.py"],
+        "cmd": [sys.executable, "src/trajectory/build_state_trajectory.py"],
         "required": True,
     },
     {
         "name": "BUILD TRANSITION PATHS",
-        "cmd": ["python", "src/trajectory/build_transition_paths.py"],
+        "cmd": [sys.executable, "src/trajectory/build_transition_paths.py"],
         "required": True,
     },
     {
         "name": "ANALYZE TRANSITION EXPECTANCY",
-        "cmd": ["python", "src/research/analyze_transition_expectancy.py"],
+        "cmd": [sys.executable, "src/research/analyze_transition_expectancy.py"],
         "required": True,
     },
     {
         "name": "BUILD STATE TRANSITION MATRIX",
-        "cmd": ["python", "src/research/build_state_transition_matrix.py"],
+        "cmd": [sys.executable, "src/research/build_state_transition_matrix.py"],
         "required": True,
     },
     {
         "name": "BUILD SURVIVABILITY ENGINE",
-        "cmd": ["python", "src/survivability/build_survivability_engine.py"],
+        "cmd": [sys.executable, "src/survivability/build_survivability_engine.py"],
         "required": True,
     },
     {
         "name": "BUILD TIMEFRAME EXPECTANCY PROFILE",
-        "cmd": ["python", "src/survivability/build_timeframe_expectancy_profile.py"],
+        "cmd": [
+            sys.executable,
+            "src/survivability/build_timeframe_expectancy_profile.py",
+        ],
         "required": True,
     },
     {
         "name": "BUILD LIVE STATE CACHE",
-        "cmd": ["python", "src/live/build_live_state_engine.py"],
+        "cmd": [sys.executable, "src/live/build_live_state_engine.py"],
+        "required": True,
+    },
+    {
+        "name": "BUILD LIVE PRICE FEED",
+        "cmd": [sys.executable, "src/live/live_price_feed.py"],
         "required": True,
     },
 ]
