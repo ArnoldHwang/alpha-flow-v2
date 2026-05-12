@@ -20,7 +20,7 @@ def load_json(path):
 
 def main():
     print("=================================")
-    print("🎨 BUILD LIVE DECISION BOARD HTML AUTO REFRESH")
+    print("🎨 BUILD LIVE SYMBOL MONITOR HTML")
     print("=================================")
 
     data = load_json(INPUT_PATH)
@@ -32,7 +32,7 @@ def main():
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Alpha-Flow V2 Live Decision Board</title>
+  <title>Alpha-Flow V2 Live Symbol Monitor</title>
   <style>
     :root {{
       --bg: #070b12;
@@ -54,16 +54,16 @@ def main():
     body {{
       margin: 0;
       background:
-        radial-gradient(circle at top left, rgba(37,99,235,0.22), transparent 34%),
-        radial-gradient(circle at top right, rgba(30,232,138,0.12), transparent 30%),
+        radial-gradient(circle at top left, rgba(37,99,235,0.20), transparent 34%),
+        radial-gradient(circle at top right, rgba(30,232,138,0.10), transparent 30%),
         var(--bg);
       color: var(--text);
       font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      padding: 28px;
+      padding: 26px;
     }}
 
     .page {{
-      max-width: 1650px;
+      max-width: 1500px;
       margin: 0 auto;
     }}
 
@@ -72,12 +72,12 @@ def main():
       justify-content: space-between;
       align-items: flex-end;
       gap: 20px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }}
 
     h1 {{
       margin: 0;
-      font-size: 34px;
+      font-size: 32px;
       letter-spacing: -0.04em;
     }}
 
@@ -115,15 +115,15 @@ def main():
 
     .summary-grid {{
       display: grid;
-      grid-template-columns: repeat(6, minmax(150px, 1fr));
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
       gap: 14px;
-      margin-bottom: 26px;
+      margin-bottom: 22px;
     }}
 
     .summary-card {{
       border: 1px solid var(--border);
       border-radius: 18px;
-      padding: 18px;
+      padding: 16px 18px;
       background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
       box-shadow: 0 12px 32px rgba(0,0,0,0.25);
     }}
@@ -131,18 +131,17 @@ def main():
     .summary-card.confirming,
     .summary-card.watch {{
       border-color: rgba(30,232,138,0.35);
-      background: linear-gradient(180deg, rgba(30,232,138,0.14), rgba(13,20,32,0.86));
+      background: linear-gradient(180deg, rgba(30,232,138,0.13), rgba(13,20,32,0.86));
     }}
 
     .summary-card.caution {{
       border-color: rgba(255,173,66,0.45);
-      background: linear-gradient(180deg, rgba(255,173,66,0.16), rgba(13,20,32,0.86));
+      background: linear-gradient(180deg, rgba(255,173,66,0.14), rgba(13,20,32,0.86));
     }}
 
-    .summary-card.risk,
-    .summary-card.avoid {{
+    .summary-card.risk {{
       border-color: rgba(255,77,94,0.45);
-      background: linear-gradient(180deg, rgba(255,77,94,0.16), rgba(13,20,32,0.86));
+      background: linear-gradient(180deg, rgba(255,77,94,0.15), rgba(13,20,32,0.86));
     }}
 
     .summary-title {{
@@ -152,15 +151,15 @@ def main():
     }}
 
     .summary-count {{
-      font-size: 38px;
-      font-weight: 900;
-      margin-top: 8px;
+      font-size: 34px;
+      font-weight: 950;
+      margin-top: 6px;
     }}
 
     .summary-desc {{
       color: var(--muted);
       font-size: 12px;
-      margin-top: 6px;
+      margin-top: 5px;
       line-height: 1.4;
     }}
 
@@ -209,7 +208,7 @@ def main():
     table {{
       width: 100%;
       border-collapse: collapse;
-      min-width: 1120px;
+      min-width: 980px;
       background: rgba(7,11,18,0.55);
     }}
 
@@ -238,7 +237,7 @@ def main():
     .symbol {{
       font-weight: 950;
       color: white;
-      font-size: 15px;
+      font-size: 16px;
       letter-spacing: 0.02em;
     }}
 
@@ -251,21 +250,10 @@ def main():
       border: 1px solid var(--border);
     }}
 
-    .confirming, .watch {{
-      color: var(--green);
-    }}
-
-    .caution {{
-      color: var(--orange);
-    }}
-
-    .risk, .avoid {{
-      color: var(--red);
-    }}
-
-    .neutral {{
-      color: var(--gray);
-    }}
+    .confirming, .watch {{ color: var(--green); }}
+    .caution {{ color: var(--orange); }}
+    .risk {{ color: var(--red); }}
+    .neutral {{ color: var(--gray); }}
 
     .pill.confirming, .pill.watch {{
       background: rgba(30,232,138,0.12);
@@ -277,16 +265,12 @@ def main():
       border-color: rgba(255,173,66,0.36);
     }}
 
-    .pill.risk, .pill.avoid {{
+    .pill.risk {{
       background: rgba(255,77,94,0.14);
       border-color: rgba(255,77,94,0.36);
     }}
 
-    .pill.neutral {{
-      background: rgba(148,163,184,0.12);
-    }}
-
-    .score, .move {{
+    .score, .move, .failure {{
       font-weight: 950;
     }}
 
@@ -302,6 +286,14 @@ def main():
     .move-crash {{ color: var(--red); }}
     .move-flat {{ color: var(--gray); }}
 
+    .failure-low {{ color: var(--green); }}
+    .failure-mid {{ color: var(--orange); }}
+    .failure-high {{ color: var(--red); }}
+
+    .trend-good {{ color: var(--green); font-weight: 900; }}
+    .trend-bad {{ color: var(--red); font-weight: 900; }}
+    .trend-flat {{ color: var(--gray); font-weight: 800; }}
+
     .empty {{
       text-align: center;
       color: var(--muted);
@@ -309,14 +301,14 @@ def main():
     }}
 
     @media (max-width: 1200px) {{
-      .summary-grid {{ grid-template-columns: repeat(3, 1fr); }}
+      .summary-grid {{ grid-template-columns: repeat(2, 1fr); }}
     }}
 
     @media (max-width: 720px) {{
       body {{ padding: 16px; }}
       .hero {{ display: block; }}
       .status-box {{ justify-content: flex-start; margin-top: 14px; }}
-      .summary-grid {{ grid-template-columns: repeat(2, 1fr); }}
+      .summary-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
 </head>
@@ -324,8 +316,8 @@ def main():
   <div class="page">
     <div class="hero">
       <div>
-        <h1>🔥 Alpha-Flow V2 Live Decision Board</h1>
-        <div class="subtitle">confirmed survivability + trajectory + live pressure 기반 실시간 continuation lifecycle 보드</div>
+        <h1>🔥 Alpha-Flow V2 Live Symbol Monitor</h1>
+        <div class="subtitle">상위 후보 실시간 감시판 — score / move / live state / trajectory / failure 중심</div>
       </div>
       <div class="status-box">
         <div class="badge"><span class="live-dot"></span>Auto Update ON</div>
@@ -341,23 +333,20 @@ def main():
 <script>
 const JSON_PATH = "_live_decision_board.json";
 const REFRESH_MS = 5000;
+const MAX_ROWS = 30;
 
 const GROUPS = [
   "ACTION_CONFIRMING",
   "ACTION_WATCH",
   "ACTION_CAUTION",
-  "ACTION_RISK_OFF",
-  "ACTION_AVOID",
-  "ACTION_NEUTRAL"
+  "ACTION_RISK_OFF"
 ];
 
 const META = {{
-  ACTION_CONFIRMING: {{ title: "🔥 CONFIRMING", desc: "실시간 재가속 확인 중", cls: "confirming" }},
-  ACTION_WATCH: {{ title: "🟢 WATCH", desc: "회복/재가속 관찰 후보", cls: "watch" }},
+  ACTION_CONFIRMING: {{ title: "🔥 CONFIRMING", desc: "즉시 강한 재가속 확인 후보", cls: "confirming" }},
+  ACTION_WATCH: {{ title: "🟢 WATCH", desc: "실시간 관찰 핵심 후보", cls: "watch" }},
   ACTION_CAUTION: {{ title: "🟠 CAUTION", desc: "회복은 있으나 구조 부담", cls: "caution" }},
-  ACTION_RISK_OFF: {{ title: "🔴 RISK OFF", desc: "장중 실패/분산/붕괴 위험", cls: "risk" }},
-  ACTION_AVOID: {{ title: "⛔ AVOID", desc: "가짜 재가속 위험", cls: "avoid" }},
-  ACTION_NEUTRAL: {{ title: "⚪ NEUTRAL", desc: "의미 있는 edge 없음", cls: "neutral" }}
+  ACTION_RISK_OFF: {{ title: "🔴 RISK OFF", desc: "장중 실패/분산/붕괴 위험", cls: "risk" }}
 }};
 
 function esc(v) {{
@@ -395,6 +384,31 @@ function moveClass(v) {{
   return "move-flat";
 }}
 
+function failureClass(v) {{
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "failure-mid";
+  if (n >= 65) return "failure-high";
+  if (n >= 45) return "failure-mid";
+  return "failure-low";
+}}
+
+function trendClass(v) {{
+  const s = String(v || "");
+  if (s.includes("IMPROVING") || s.includes("BUILDING") || s.includes("STRONG")) return "trend-good";
+  if (s.includes("DETERIORATING") || s.includes("WEAK") || s.includes("PERSISTING")) return "trend-bad";
+  return "trend-flat";
+}}
+
+function sortedRows(items) {{
+  return [...items].sort((a, b) => {{
+    const scoreA = Number(a.score || 0);
+    const scoreB = Number(b.score || 0);
+    const moveA = Number(a.move || 0);
+    const moveB = Number(b.move || 0);
+    return (scoreB - scoreA) || (moveB - moveA);
+  }}).slice(0, MAX_ROWS);
+}}
+
 function renderSummary(data) {{
   const counts = data.counts || {{}};
 
@@ -414,25 +428,22 @@ function renderSummary(data) {{
 
 function renderTable(group, items) {{
   const meta = META[group];
-  const rows = group === "ACTION_NEUTRAL" ? items.slice(0, 40) : items;
+  const rows = sortedRows(items || []);
 
   let body = rows.map(item => `
     <tr>
       <td class="symbol">${{esc(item.symbol)}}</td>
-      <td><span class="pill ${{meta.cls}}">${{esc(item.liveMergedState)}}</span></td>
       <td><span class="score ${{scoreClass(item.score)}}">${{num(item.score)}}</span></td>
       <td><span class="move ${{moveClass(item.move)}}">${{num(item.move)}}%</span></td>
-      <td>${{esc(item.hierarchy)}}</td>
+      <td><span class="pill ${{meta.cls}}">${{esc(item.liveMergedState)}}</span></td>
       <td>${{esc(item.trajectory)}}</td>
-      <td>${{esc(item.bias)}}</td>
-      <td>${{num(item.breakoutPressure)}}</td>
-      <td>${{num(item.failurePressure)}}</td>
-      <td>${{num(item.distributionPressure)}}</td>
+      <td><span class="${{trendClass(item.livePressureTrend)}}">${{esc(item.livePressureTrend || "-")}}</span></td>
+      <td><span class="failure ${{failureClass(item.failurePressure)}}">${{num(item.failurePressure)}}</span></td>
     </tr>
   `).join("");
 
   if (!body) {{
-    body = `<tr><td colspan="10" class="empty">No symbols</td></tr>`;
+    body = `<tr><td colspan="7" class="empty">No symbols</td></tr>`;
   }}
 
   return `
@@ -450,15 +461,12 @@ function renderTable(group, items) {{
           <thead>
             <tr>
               <th>Symbol</th>
-              <th>State</th>
               <th>Score</th>
               <th>Move</th>
-              <th>Hierarchy</th>
+              <th>Live State</th>
               <th>Trajectory</th>
-              <th>Bias</th>
-              <th>Breakout</th>
+              <th>Trend</th>
               <th>Failure</th>
-              <th>Distribution</th>
             </tr>
           </thead>
           <tbody>${{body}}</tbody>
@@ -481,9 +489,7 @@ async function loadBoard() {{
     const url = JSON_PATH + "?t=" + Date.now();
     const res = await fetch(url);
 
-    if (!res.ok) {{
-      throw new Error("fetch failed: " + res.status);
-    }}
+    if (!res.ok) throw new Error("fetch failed: " + res.status);
 
     const data = await res.json();
 

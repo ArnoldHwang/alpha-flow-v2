@@ -1,6 +1,7 @@
 # src/live/live_price_feed.py
 
 import json
+import os
 import time
 from pathlib import Path
 from datetime import datetime, timezone
@@ -13,16 +14,22 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from live.providers.yahoo_provider import (
-    fetch_yahoo_quotes_with_retry,
+from live.providers.alpaca_provider import (
+    fetch_alpaca_latest_bars_with_retry,
 )
 
 RAW_DAILY_DIR = ROOT / "data" / "raw" / "daily"
 LIVE_FEED_DIR = ROOT / "data" / "live_feed"
-OUTPUT_PATH = LIVE_FEED_DIR / "live_quotes.json"
+LIVE_STATES_DIR = ROOT / "data" / "live_states"
 
-BATCH_SIZE = 20
-REQUEST_SLEEP_SEC = 5
+OUTPUT_PATH = LIVE_FEED_DIR / "live_quotes.json"
+BOARD_PATH = LIVE_STATES_DIR / "_live_decision_board.json"
+
+BATCH_SIZE = 10
+REQUEST_SLEEP_SEC = 3
+SYMBOL_LIMIT = 30
+
+ALPACA_FEED = os.getenv("ALPACA_FEED", "iex").strip().lower()
 
 
 def now_utc():
@@ -43,14 +50,145 @@ def chunk_list(items, size):
         yield items[i : i + size]
 
 
-def load_symbols():
+def is_alpaca_stock_symbol(symbol):
+    if not symbol:
+        return False
+
+    blocked_symbols = {
+        "BTC-USD",
+        "ETH-USD",
+        "CL-F",
+        "BZ-F",
+        "GC-F",
+        "DX-Y-NYB",
+        "VIX",
+        "TNX",
+    }
+
+    if symbol in blocked_symbols:
+        return False
+
+    if symbol.startswith("^"):
+        return False
+
+    if symbol.endswith("-USD"):
+        return False
+
+    if symbol.endswith("-F"):
+        return False
+
+    if "=" in symbol:
+        return False
+
+    return True
+
+
+def load_json(path, default):
+    if not path.exists():
+        return default
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+def extract_top_symbols_from_board():
+    """
+    기존 live decision board에서 점수 높은 심볼만 가져온다.
+
+    중요:
+    live_price_feed는 이번 루프의 첫 단계라서
+    최신 board는 직전 루프 결과를 사용한다.
+
+    이게 의도한 구조다:
+    confirmed/live decision이 좋았던 후보만
+    다음 loop에서 집중 감시한다.
+    """
+
+    data = load_json(BOARD_PATH, {})
+    board = data.get("board", {})
+
+    if not isinstance(board, dict):
+        return []
+
+    priority_groups = [
+        "ACTION_CONFIRMING",
+        "ACTION_WATCH",
+        "ACTION_CAUTION",
+        "ACTION_NEUTRAL",
+    ]
+
+    candidates = []
+
+    for group in priority_groups:
+        rows = board.get(group, [])
+
+        if not isinstance(rows, list):
+            continue
+
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+
+            symbol = row.get("symbol")
+
+            if not is_alpaca_stock_symbol(symbol):
+                continue
+
+            score = safe_float(
+                row.get(
+                    "score", row.get("finalRankScore", row.get("livePressureScore", 0))
+                )
+            )
+
+            move = safe_float(row.get("move", row.get("dayChangePct", 0)))
+
+            candidates.append(
+                {
+                    "symbol": symbol,
+                    "group": group,
+                    "score": score,
+                    "move": move,
+                }
+            )
+
+    # 같은 symbol 중복 제거: 가장 높은 score만 유지
+    best_by_symbol = {}
+
+    for item in candidates:
+        symbol = item["symbol"]
+
+        if symbol not in best_by_symbol:
+            best_by_symbol[symbol] = item
+            continue
+
+        if item["score"] > best_by_symbol[symbol]["score"]:
+            best_by_symbol[symbol] = item
+
+    ranked = sorted(
+        best_by_symbol.values(),
+        key=lambda x: (
+            x["group"] == "ACTION_CONFIRMING",
+            x["group"] == "ACTION_WATCH",
+            x["score"],
+            x["move"],
+        ),
+        reverse=True,
+    )
+
+    return [x["symbol"] for x in ranked[:SYMBOL_LIMIT]]
+
+
+def load_fallback_symbols():
     symbols = []
 
     if RAW_DAILY_DIR.exists():
         for path in RAW_DAILY_DIR.glob("*.json"):
             symbol = path.stem.strip()
 
-            if symbol:
+            if symbol and is_alpaca_stock_symbol(symbol):
                 symbols.append(symbol)
 
     symbols = sorted(set(symbols))
@@ -58,7 +196,18 @@ def load_symbols():
     if not symbols:
         raise RuntimeError(f"no symbols found: {RAW_DAILY_DIR}")
 
-    return symbols
+    return symbols[:SYMBOL_LIMIT]
+
+
+def load_symbols():
+    top_symbols = extract_top_symbols_from_board()
+
+    if top_symbols:
+        print("symbolSource: decision_board_top_symbols")
+        return top_symbols
+
+    print("symbolSource: fallback_raw_daily")
+    return load_fallback_symbols()
 
 
 def load_previous_quotes():
@@ -98,59 +247,44 @@ def calc_close_position(price, low, high):
     return round((price - low) / (high - low), 4)
 
 
-def normalize_quote(q):
-    symbol = q.get("symbol")
+def normalize_alpaca_bar(symbol, bar, previous=None):
+    if previous is None:
+        previous = {}
 
-    price = q.get("regularMarketPrice")
-    prev_close = q.get("regularMarketPreviousClose")
-    open_price = q.get("regularMarketOpen")
-
-    high = q.get("regularMarketDayHigh")
-    low = q.get("regularMarketDayLow")
-
-    volume = q.get("regularMarketVolume")
-
-    avg_volume = q.get("averageDailyVolume3Month") or q.get("averageDailyVolume10Day")
-
-    day_change_pct = q.get("regularMarketChangePercent")
-
-    if day_change_pct is None:
-        day_change_pct = calc_pct(price, prev_close)
+    price = bar.get("c")
+    open_price = bar.get("o")
+    high = bar.get("h")
+    low = bar.get("l")
+    volume = bar.get("v")
 
     intraday_from_open_pct = calc_pct(price, open_price)
-
-    volume_ratio = None
-
-    if avg_volume and safe_float(avg_volume) > 0:
-        volume_ratio = round(
-            safe_float(volume) / safe_float(avg_volume),
-            4,
-        )
-
     close_position = calc_close_position(price, low, high)
 
-    status = "OK" if price is not None else "ERROR"
+    day_change_pct = previous.get("dayChangePct")
+
+    if day_change_pct is None:
+        day_change_pct = intraday_from_open_pct
 
     return {
         "symbol": symbol,
-        "yahooSymbol": symbol,
-        "status": status,
-        "marketState": q.get("marketState"),
-        "currency": q.get("currency"),
-        "exchangeName": (q.get("fullExchangeName") or q.get("exchange")),
-        "instrumentType": q.get("quoteType"),
+        "provider": "alpaca",
+        "status": "OK" if price is not None else "ERROR",
+        "marketState": "UNKNOWN",
+        "currency": previous.get("currency", "USD"),
+        "exchangeName": previous.get("exchangeName"),
+        "instrumentType": previous.get("instrumentType", "EQUITY"),
         "regularMarketPrice": price,
-        "regularMarketPreviousClose": prev_close,
+        "regularMarketPreviousClose": previous.get("regularMarketPreviousClose"),
         "regularMarketOpen": open_price,
         "regularMarketDayHigh": high,
         "regularMarketDayLow": low,
         "regularMarketVolume": volume,
-        "averageDailyVolume": avg_volume,
+        "averageDailyVolume": previous.get("averageDailyVolume"),
         "dayChangePct": (
             round(safe_float(day_change_pct), 4) if day_change_pct is not None else None
         ),
         "intradayFromOpenPct": intraday_from_open_pct,
-        "volumeRatio": volume_ratio,
+        "volumeRatio": previous.get("volumeRatio"),
         "closePosition": close_position,
         "liveBreakoutHint": bool(
             day_change_pct is not None
@@ -164,6 +298,9 @@ def normalize_quote(q):
             and close_position is not None
             and close_position <= 0.35
         ),
+        "alpacaBarTime": bar.get("t"),
+        "alpacaVwap": bar.get("vw"),
+        "alpacaTradeCount": bar.get("n"),
         "fetchedAtUtc": now_utc(),
     }
 
@@ -172,6 +309,7 @@ def build_stale_row(symbol, previous, error):
     row = dict(previous)
 
     row["status"] = "STALE_OK"
+    row["provider"] = row.get("provider", "alpaca")
     row["staleReason"] = str(error)
     row["lastFetchFailedAtUtc"] = now_utc()
 
@@ -181,6 +319,7 @@ def build_stale_row(symbol, previous, error):
 def build_error_row(symbol, error):
     return {
         "symbol": symbol,
+        "provider": "alpaca",
         "status": "ERROR",
         "error": str(error),
         "regularMarketPrice": None,
@@ -191,7 +330,7 @@ def build_error_row(symbol, error):
 
 def main():
     print("=================================")
-    print("🔥 LIVE PRICE FEED")
+    print("🔥 LIVE PRICE FEED - ALPACA")
     print("=================================")
 
     LIVE_FEED_DIR.mkdir(
@@ -202,8 +341,11 @@ def main():
     symbols = load_symbols()
     previous_quotes = load_previous_quotes()
 
+    print(f"provider: alpaca")
+    print(f"feed: {ALPACA_FEED}")
     print(f"symbols: {len(symbols)}")
     print(f"batchSize: {BATCH_SIZE}")
+    print("watchSymbols:", ", ".join(symbols))
 
     rows_by_symbol = {}
 
@@ -219,29 +361,31 @@ def main():
         print(f"batch {batch_index}: {len(batch)} symbols")
 
         try:
-            quotes = fetch_yahoo_quotes_with_retry(batch)
-
-            quote_map = {q.get("symbol"): q for q in quotes if q.get("symbol")}
+            bars = fetch_alpaca_latest_bars_with_retry(
+                symbols=batch,
+                feed=ALPACA_FEED,
+            )
 
             for symbol in batch:
-                q = quote_map.get(symbol)
+                bar = bars.get(symbol)
 
-                if q:
-                    row = normalize_quote(q)
+                if bar:
+                    row = normalize_alpaca_bar(
+                        symbol=symbol,
+                        bar=bar,
+                        previous=previous_quotes.get(symbol),
+                    )
 
                     if row["status"] == "OK":
                         ok_count += 1
                     else:
                         previous = previous_quotes.get(symbol)
 
-                        if previous and previous.get("status") in [
-                            "OK",
-                            "STALE_OK",
-                        ]:
+                        if previous and previous.get("status") in ["OK", "STALE_OK"]:
                             row = build_stale_row(
                                 symbol,
                                 previous,
-                                "missing market price",
+                                "missing alpaca price",
                             )
                             stale_count += 1
                         else:
@@ -252,20 +396,17 @@ def main():
                 else:
                     previous = previous_quotes.get(symbol)
 
-                    if previous and previous.get("status") in [
-                        "OK",
-                        "STALE_OK",
-                    ]:
+                    if previous and previous.get("status") in ["OK", "STALE_OK"]:
                         rows_by_symbol[symbol] = build_stale_row(
                             symbol,
                             previous,
-                            "symbol not returned",
+                            "alpaca symbol not returned",
                         )
                         stale_count += 1
                     else:
                         rows_by_symbol[symbol] = build_error_row(
                             symbol,
-                            "symbol not returned",
+                            "alpaca symbol not returned",
                         )
                         error_count += 1
 
@@ -275,10 +416,7 @@ def main():
             for symbol in batch:
                 previous = previous_quotes.get(symbol)
 
-                if previous and previous.get("status") in [
-                    "OK",
-                    "STALE_OK",
-                ]:
+                if previous and previous.get("status") in ["OK", "STALE_OK"]:
                     rows_by_symbol[symbol] = build_stale_row(
                         symbol,
                         previous,
@@ -298,7 +436,14 @@ def main():
 
     output = {
         "generatedAt": now_utc(),
-        "source": "yahoo_provider",
+        "source": "alpaca_provider",
+        "provider": "alpaca",
+        "feed": ALPACA_FEED,
+        "symbolSource": (
+            "decision_board_top_symbols"
+            if BOARD_PATH.exists()
+            else "fallback_raw_daily"
+        ),
         "batchSize": BATCH_SIZE,
         "totalSymbols": len(rows),
         "okCount": ok_count,
@@ -334,6 +479,10 @@ def main():
         print(
             row.get("symbol"),
             row.get("status"),
+            "provider=",
+            row.get("provider"),
+            "price=",
+            row.get("regularMarketPrice"),
             "move=",
             row.get("dayChangePct"),
         )
