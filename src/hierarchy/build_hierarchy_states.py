@@ -2,6 +2,8 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from src.hierarchy.state_stability_engine import build_state_stability
+from src.hierarchy.mixed_structure_engine import classify_mixed_structure
 
 STATE_DATA_PATH = "data/states"
 HIERARCHY_DATA_PATH = "data/hierarchy"
@@ -25,33 +27,30 @@ def save_json(path, rows):
 
 
 def get_latest_confirmed_asof(rows, target_date):
+    target_date = str(target_date)
+
     candidates = []
 
     for row in rows:
         if not row.get("isComplete"):
             continue
 
-        if row.get("date") <= target_date:
+        row_date = str(row.get("date"))
+
+        if row_date <= target_date:
             candidates.append(row)
 
     if not candidates:
         return None
 
+    candidates = sorted(candidates, key=lambda x: x.get("date"))
+
     return candidates[-1]
 
 
 def get_live_asof(rows, target_date):
-    """
-    as-of live:
-    target_date 기준으로 알 수 있었던 진행 중 weekly/monthly 봉만 사용.
+    target_date = str(target_date)
 
-    예:
-    2026-05-11 daily 판단
-    → 2026-05-11 monthly live 사용 가능
-
-    2021-01-04 daily 판단
-    → 2026-05 monthly live 사용 불가
-    """
     candidates = []
 
     for row in rows:
@@ -64,11 +63,16 @@ def get_live_asof(rows, target_date):
         if not start or not end:
             continue
 
+        start = str(start)
+        end = str(end)
+
         if start <= target_date <= end:
             candidates.append(row)
 
     if not candidates:
         return None
+
+    candidates = sorted(candidates, key=lambda x: x.get("date"))
 
     return candidates[-1]
 
@@ -287,6 +291,7 @@ def process_symbol(file_name):
     monthly_rows = load_json(monthly_path)
 
     hierarchy_rows = []
+    symbol_history = []
 
     for daily_row in daily_rows:
         if not daily_row.get("isComplete"):
@@ -303,16 +308,27 @@ def process_symbol(file_name):
         if not weekly_confirmed or not monthly_confirmed:
             continue
 
-        hierarchy_rows.append(
-            build_hierarchy_row(
-                symbol=symbol,
-                daily_row=daily_row,
-                weekly_confirmed=weekly_confirmed,
-                monthly_confirmed=monthly_confirmed,
-                weekly_live=weekly_live,
-                monthly_live=monthly_live,
-            )
+        row = build_hierarchy_row(
+            symbol=symbol,
+            daily_row=daily_row,
+            weekly_confirmed=weekly_confirmed,
+            monthly_confirmed=monthly_confirmed,
+            weekly_live=weekly_live,
+            monthly_live=monthly_live,
         )
+
+        stability = build_state_stability(
+            current_row=row,
+            symbol_history=symbol_history,
+        )
+
+        row.update(stability)
+
+        mixed_info = classify_mixed_structure(row)
+        row.update(mixed_info)
+
+        hierarchy_rows.append(row)
+        symbol_history.append(row)
 
     save_path = os.path.join(HIERARCHY_DATA_PATH, f"{symbol}.json")
     save_json(save_path, hierarchy_rows)

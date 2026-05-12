@@ -3,10 +3,14 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-STATE_DATA_PATH = "data/states"
-HIERARCHY_DATA_PATH = "data/hierarchy"
+import pandas as pd
 
-HIERARCHY_VERSION = "hierarchy-state-v2.1-leak-safe"
+SNAPSHOT_DATA_PATH = "data/snapshots"
+STATE_DATA_PATH = "data/states"
+
+TIMEFRAME_FOLDERS = ["daily", "weekly", "monthly"]
+
+STATE_VERSION = "timeframe-state-v2"
 
 
 def ensure_dir(path):
@@ -24,317 +28,215 @@ def save_json(path, rows):
         json.dump(rows, f, ensure_ascii=False, indent=2)
 
 
-def get_latest_confirmed_asof(rows, target_date):
-    candidates = []
-
-    for row in rows:
-        if not row.get("isComplete"):
-            continue
-
-        if row.get("date") <= target_date:
-            candidates.append(row)
-
-    if not candidates:
-        return None
-
-    return candidates[-1]
+def safe_float(value, default=0):
+    if value is None or pd.isna(value):
+        return default
+    return float(value)
 
 
-def get_live_asof(rows, target_date):
-    """
-    as-of live:
-    target_date 기준으로 알 수 있었던 진행 중 weekly/monthly 봉만 사용.
+def classify_trend(row):
+    close = safe_float(row.get("close"))
+    ema20 = safe_float(row.get("ema20"))
+    ema60 = safe_float(row.get("ema60"))
+    ema120 = safe_float(row.get("ema120"))
 
-    예:
-    2026-05-11 daily 판단
-    → 2026-05-11 monthly live 사용 가능
+    if close > ema20 > ema60 > ema120:
+        return "STRONG_UPTREND"
 
-    2021-01-04 daily 판단
-    → 2026-05 monthly live 사용 불가
-    """
-    candidates = []
+    if close > ema20 and close > ema60:
+        return "UPTREND"
 
-    for row in rows:
-        if row.get("isComplete"):
-            continue
+    if close > ema60 and close < ema20:
+        return "PULLBACK_IN_UPTREND"
 
-        start = row.get("candleStart")
-        end = row.get("candleEnd")
-
-        if not start or not end:
-            continue
-
-        if start <= target_date <= end:
-            candidates.append(row)
-
-    if not candidates:
-        return None
-
-    return candidates[-1]
-
-
-def classify_hierarchy_base(monthly, weekly, daily):
-    monthly_state = monthly.get("continuationState") if monthly else "UNKNOWN"
-    weekly_state = weekly.get("continuationState") if weekly else "UNKNOWN"
-    daily_state = daily.get("continuationState") if daily else "UNKNOWN"
-
-    if monthly_state == "TERMINAL_RISK" or weekly_state == "TERMINAL_RISK":
-        return "TERMINAL_STRUCTURE_RISK"
-
-    if (
-        monthly_state == "LATE_STAGE_CONTINUATION"
-        and weekly_state == "LATE_STAGE_CONTINUATION"
-    ):
-        return "AGING_CONTINUATION_STRUCTURE"
-
-    if (
-        monthly_state in ["HEALTHY_CONTINUATION", "BASE_BUILDING", "HEALTHY_PULLBACK"]
-        and weekly_state
-        in ["HEALTHY_CONTINUATION", "BASE_BUILDING", "HEALTHY_PULLBACK"]
-        and daily_state in ["HEALTHY_CONTINUATION", "RE_ACCELERATING_CONTINUATION"]
-    ):
-        return "ELITE_CONTINUATION_STRUCTURE"
-
-    if (
-        monthly_state in ["HEALTHY_CONTINUATION", "LATE_STAGE_CONTINUATION"]
-        and weekly_state == "HEALTHY_CONTINUATION"
-        and daily_state in ["HEALTHY_CONTINUATION", "RE_ACCELERATING_CONTINUATION"]
-    ):
-        return "HEALTHY_BUT_MONTHLY_EXTENDED"
-
-    if (
-        monthly_state in ["HEALTHY_CONTINUATION", "BASE_BUILDING"]
-        and weekly_state in ["PAUSE_OR_PULLBACK", "HEALTHY_PULLBACK", "BASE_BUILDING"]
-        and daily_state in ["BASE_BUILDING", "HEALTHY_PULLBACK", "PAUSE_OR_PULLBACK"]
-    ):
-        return "CONSTRUCTIVE_PAUSE_STRUCTURE"
-
-    if weekly_state == "DETERIORATING" or daily_state == "DETERIORATING":
-        return "DETERIORATING_STRUCTURE"
-
-    if monthly_state == "LATE_STAGE_CONTINUATION" and daily_state in [
-        "RE_ACCELERATING_CONTINUATION",
-        "HEALTHY_CONTINUATION",
-    ]:
-        return "LATE_STAGE_REACCELERATION"
-
-    return "MIXED_STRUCTURE"
-
-
-def classify_live_adjustment(base_state, monthly_live, weekly_live):
-    monthly_live_state = monthly_live.get("continuationState") if monthly_live else None
-    weekly_live_state = weekly_live.get("continuationState") if weekly_live else None
-
-    risk_states = ["TERMINAL_RISK", "DETERIORATING"]
-    strong_states = ["HEALTHY_CONTINUATION", "RE_ACCELERATING_CONTINUATION"]
-
-    if monthly_live_state in risk_states or weekly_live_state in risk_states:
-        return "LIVE_RISK_DOWNGRADE"
-
-    if weekly_live_state in strong_states and base_state in [
-        "ELITE_CONTINUATION_STRUCTURE",
-        "CONSTRUCTIVE_PAUSE_STRUCTURE",
-        "HEALTHY_BUT_MONTHLY_EXTENDED",
-    ]:
-        return "LIVE_CONFIRMATION"
-
-    if (
-        monthly_live_state == "LATE_STAGE_CONTINUATION"
-        and weekly_live_state in strong_states
-    ):
-        return "LIVE_STRONG_BUT_LATE"
-
-    return "NO_LIVE_ADJUSTMENT"
-
-
-def build_final_hierarchy_state(base_state, live_adjustment):
-    if live_adjustment == "LIVE_RISK_DOWNGRADE":
-        return f"{base_state}_WITH_LIVE_RISK"
-
-    if live_adjustment == "LIVE_CONFIRMATION":
-        return f"{base_state}_CONFIRMED_BY_LIVE"
-
-    if live_adjustment == "LIVE_STRONG_BUT_LATE":
-        return f"{base_state}_LIVE_REACCELERATION_BUT_LATE"
-
-    return base_state
-
-
-def build_survivability_bias(final_state):
-    if "LIVE_RISK" in final_state:
-        return "REDUCE_RISK"
-
-    if final_state.startswith("ELITE_CONTINUATION_STRUCTURE"):
-        return "HIGH"
-
-    if final_state.startswith("CONSTRUCTIVE_PAUSE_STRUCTURE"):
-        return "GOOD"
-
-    if final_state.startswith("HEALTHY_BUT_MONTHLY_EXTENDED"):
-        return "GOOD_BUT_EXTENSION_RISK"
-
-    if final_state.startswith("LATE_STAGE_REACCELERATION"):
-        return "TACTICAL_ONLY"
-
-    if final_state.startswith("AGING_CONTINUATION_STRUCTURE"):
-        return "CAUTION"
-
-    if final_state.startswith("DETERIORATING_STRUCTURE"):
-        return "AVOID"
-
-    if final_state.startswith("TERMINAL_STRUCTURE_RISK"):
-        return "AVOID"
+    if close < ema20 and close < ema60:
+        return "WEAK_OR_DOWN"
 
     return "NEUTRAL"
 
 
-def build_hierarchy_row(
-    symbol,
-    daily_row,
-    weekly_confirmed,
-    monthly_confirmed,
-    weekly_live,
-    monthly_live,
-):
+def classify_expansion(row):
+    change5 = safe_float(row.get("change5"))
+    change20 = safe_float(row.get("change20"))
+    ema20_gap = safe_float(row.get("ema20Gap"))
+    volume_ratio = safe_float(row.get("volumeRatio20"), 1)
+
+    if change20 >= 25 and ema20_gap >= 20:
+        return "EXTENDED"
+
+    if change5 >= 10 and volume_ratio >= 1.5:
+        return "RE_ACCELERATION"
+
+    if change20 >= 10 and ema20_gap >= 5:
+        return "HEALTHY_EXPANSION"
+
+    if abs(change20) <= 5 and volume_ratio <= 1.1:
+        return "COMPRESSION"
+
+    return "NORMAL"
+
+
+def classify_exhaustion(row):
+    rsi = safe_float(row.get("rsi14"))
+    ema20_gap = safe_float(row.get("ema20Gap"))
+    volume_ratio = safe_float(row.get("volumeRatio20"), 1)
+    close_position = safe_float(row.get("closePosition"), 0.5)
+
+    if rsi >= 80 and ema20_gap >= 25 and volume_ratio >= 2:
+        return "TERMINAL_RISK"
+
+    if rsi >= 75 and ema20_gap >= 18:
+        return "OVERHEATED"
+
+    if volume_ratio >= 2 and close_position <= 0.4:
+        return "DISTRIBUTION_WARNING"
+
+    return "LOW"
+
+
+def classify_location(row):
+    high_gap = safe_float(row.get("distanceFromHigh20"))
+    low_gap = safe_float(row.get("distanceFromLow20"))
+
+    if high_gap >= -3:
+        return "NEAR_HIGH"
+
+    if high_gap <= -15 and low_gap >= 10:
+        return "PULLBACK_ZONE"
+
+    if low_gap <= 5:
+        return "NEAR_LOW"
+
+    return "MID_RANGE"
+
+
+def build_continuation_state(row):
+    trend = classify_trend(row)
+    expansion = classify_expansion(row)
+    exhaustion = classify_exhaustion(row)
+    location = classify_location(row)
+
+    if exhaustion == "TERMINAL_RISK":
+        return "TERMINAL_RISK"
+
+    if exhaustion == "OVERHEATED":
+        return "LATE_STAGE_CONTINUATION"
+
+    if trend == "STRONG_UPTREND" and expansion == "RE_ACCELERATION":
+        return "RE_ACCELERATING_CONTINUATION"
+
+    if trend in ["STRONG_UPTREND", "UPTREND"] and expansion == "HEALTHY_EXPANSION":
+        return "HEALTHY_CONTINUATION"
+
+    if trend in ["STRONG_UPTREND", "UPTREND"] and location == "PULLBACK_ZONE":
+        return "HEALTHY_PULLBACK"
+
+    if expansion == "COMPRESSION" and trend in ["UPTREND", "STRONG_UPTREND"]:
+        return "BASE_BUILDING"
+
+    if trend == "PULLBACK_IN_UPTREND":
+        return "PAUSE_OR_PULLBACK"
+
+    if trend == "WEAK_OR_DOWN":
+        return "DETERIORATING"
+
+    return "NEUTRAL"
+
+
+def build_state_row(row):
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    base_state = classify_hierarchy_base(
-        monthly_confirmed,
-        weekly_confirmed,
-        daily_row,
-    )
-
-    live_adjustment = classify_live_adjustment(
-        base_state,
-        monthly_live,
-        weekly_live,
-    )
-
-    final_state = build_final_hierarchy_state(
-        base_state,
-        live_adjustment,
-    )
-
-    survivability_bias = build_survivability_bias(final_state)
+    trend_state = classify_trend(row)
+    expansion_state = classify_expansion(row)
+    exhaustion_state = classify_exhaustion(row)
+    location_state = classify_location(row)
+    continuation_state = build_continuation_state(row)
 
     return {
-        "symbol": symbol,
-        "date": daily_row.get("date"),
-        "dailyDate": daily_row.get("date"),
-        "weeklyConfirmedDate": (
-            weekly_confirmed.get("date") if weekly_confirmed else None
-        ),
-        "monthlyConfirmedDate": (
-            monthly_confirmed.get("date") if monthly_confirmed else None
-        ),
-        "weeklyLiveDate": weekly_live.get("date") if weekly_live else None,
-        "monthlyLiveDate": monthly_live.get("date") if monthly_live else None,
-        "assetType": daily_row.get("assetType"),
-        "sector": daily_row.get("sector"),
-        "themes": daily_row.get("themes", []),
-        "betaType": daily_row.get("betaType"),
-        "marketCapGroup": daily_row.get("marketCapGroup"),
-        "dailyContinuationState": daily_row.get("continuationState"),
-        "weeklyConfirmedContinuationState": (
-            weekly_confirmed.get("continuationState") if weekly_confirmed else None
-        ),
-        "monthlyConfirmedContinuationState": (
-            monthly_confirmed.get("continuationState") if monthly_confirmed else None
-        ),
-        "weeklyLiveContinuationState": (
-            weekly_live.get("continuationState") if weekly_live else None
-        ),
-        "monthlyLiveContinuationState": (
-            monthly_live.get("continuationState") if monthly_live else None
-        ),
-        "dailyTrendState": daily_row.get("trendState"),
-        "weeklyTrendState": (
-            weekly_confirmed.get("trendState") if weekly_confirmed else None
-        ),
-        "monthlyTrendState": (
-            monthly_confirmed.get("trendState") if monthly_confirmed else None
-        ),
-        "dailyExhaustionState": daily_row.get("exhaustionState"),
-        "weeklyExhaustionState": (
-            weekly_confirmed.get("exhaustionState") if weekly_confirmed else None
-        ),
-        "monthlyExhaustionState": (
-            monthly_confirmed.get("exhaustionState") if monthly_confirmed else None
-        ),
-        "hierarchyBaseState": base_state,
-        "liveAdjustmentState": live_adjustment,
-        "finalHierarchyState": final_state,
-        "survivabilityBias": survivability_bias,
-        "hierarchyVersion": HIERARCHY_VERSION,
+        "symbol": row.get("symbol"),
+        "timeframe": row.get("timeframe"),
+        "date": row.get("date"),
+        "candleStart": row.get("candleStart"),
+        "candleEnd": row.get("candleEnd"),
+        "isComplete": bool(row.get("isComplete")),
+        "assetType": row.get("assetType"),
+        "sector": row.get("sector"),
+        "themes": row.get("themes", []),
+        "betaType": row.get("betaType"),
+        "marketCapGroup": row.get("marketCapGroup"),
+        "role": row.get("role"),
+        "close": row.get("close"),
+        "ema20Gap": row.get("ema20Gap"),
+        "ema60Gap": row.get("ema60Gap"),
+        "ema120Gap": row.get("ema120Gap"),
+        "rsi14": row.get("rsi14"),
+        "atr14Pct": row.get("atr14Pct"),
+        "volumeRatio20": row.get("volumeRatio20"),
+        "distanceFromHigh20": row.get("distanceFromHigh20"),
+        "distanceFromLow20": row.get("distanceFromLow20"),
+        "change5": row.get("change5"),
+        "change20": row.get("change20"),
+        "volatility20": row.get("volatility20"),
+        "closePosition": row.get("closePosition"),
+        "trendState": trend_state,
+        "expansionState": expansion_state,
+        "exhaustionState": exhaustion_state,
+        "locationState": location_state,
+        "continuationState": continuation_state,
+        "sourceSnapshotVersion": row.get("snapshotVersion"),
+        "stateVersion": STATE_VERSION,
         "createdAt": now_iso,
         "updatedAt": now_iso,
     }
 
 
-def process_symbol(file_name):
-    symbol = file_name.replace(".json", "")
+def process_timeframe(timeframe_name):
+    snapshot_folder = os.path.join(SNAPSHOT_DATA_PATH, timeframe_name)
+    state_folder = os.path.join(STATE_DATA_PATH, timeframe_name)
 
-    daily_path = os.path.join(STATE_DATA_PATH, "daily", file_name)
-    weekly_path = os.path.join(STATE_DATA_PATH, "weekly", file_name)
-    monthly_path = os.path.join(STATE_DATA_PATH, "monthly", file_name)
+    ensure_dir(state_folder)
 
-    if not os.path.exists(weekly_path) or not os.path.exists(monthly_path):
-        print(f"⚠️ missing weekly/monthly for {symbol}")
+    if not os.path.exists(snapshot_folder):
+        print(f"⚠️ snapshot folder missing: {snapshot_folder}")
         return
 
-    daily_rows = load_json(daily_path)
-    weekly_rows = load_json(weekly_path)
-    monthly_rows = load_json(monthly_path)
+    files = [f for f in os.listdir(snapshot_folder) if f.endswith(".json")]
 
-    hierarchy_rows = []
+    print("")
+    print(f"📦 {timeframe_name} snapshot files: {len(files)}")
 
-    for daily_row in daily_rows:
-        if not daily_row.get("isComplete"):
-            continue
+    for file_name in files:
+        snapshot_path = os.path.join(snapshot_folder, file_name)
+        save_path = os.path.join(state_folder, file_name)
 
-        target_date = daily_row.get("date")
+        try:
+            rows = load_json(snapshot_path)
+            state_rows = [build_state_row(row) for row in rows]
 
-        weekly_confirmed = get_latest_confirmed_asof(weekly_rows, target_date)
-        monthly_confirmed = get_latest_confirmed_asof(monthly_rows, target_date)
+            save_json(save_path, state_rows)
 
-        weekly_live = get_live_asof(weekly_rows, target_date)
-        monthly_live = get_live_asof(monthly_rows, target_date)
+            live_count = sum(1 for x in state_rows if not x["isComplete"])
 
-        if not weekly_confirmed or not monthly_confirmed:
-            continue
-
-        hierarchy_rows.append(
-            build_hierarchy_row(
-                symbol=symbol,
-                daily_row=daily_row,
-                weekly_confirmed=weekly_confirmed,
-                monthly_confirmed=monthly_confirmed,
-                weekly_live=weekly_live,
-                monthly_live=monthly_live,
+            print(
+                f"✅ {timeframe_name} | {file_name} | "
+                f"rows: {len(state_rows)} | live: {live_count}"
             )
-        )
 
-    save_path = os.path.join(HIERARCHY_DATA_PATH, f"{symbol}.json")
-    save_json(save_path, hierarchy_rows)
-
-    print(f"✅ {symbol} | hierarchy rows: {len(hierarchy_rows)}")
+        except Exception as e:
+            print(f"❌ FAIL {timeframe_name} | {file_name} | {e}")
 
 
 def main():
     print("=================================")
-    print("🧠 ALPHA-FLOW V2 BUILD HIERARCHY STATES")
+    print("🧠 ALPHA-FLOW V2 BUILD TIMEFRAME STATES")
     print("=================================")
 
-    daily_folder = os.path.join(STATE_DATA_PATH, "daily")
-
-    files = [f for f in os.listdir(daily_folder) if f.endswith(".json")]
-
-    for file_name in files:
-        process_symbol(file_name)
+    for timeframe_name in TIMEFRAME_FOLDERS:
+        process_timeframe(timeframe_name)
 
     print("")
     print("=================================")
-    print("✅ HIERARCHY BUILD COMPLETE")
+    print("✅ TIMEFRAME STATE BUILD COMPLETE")
     print("=================================")
 
 

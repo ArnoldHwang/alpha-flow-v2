@@ -32,11 +32,355 @@
     "marketCapGroup": "mega"
   },
   {
+    "symbol": "MU",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["memory", "AI"],
+    "betaType": "cyclical_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "MRVL",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["AI", "networking"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "ARM",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["AI", "mobile"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "SMCI",
+    "assetType": "stock",
+    "sector": "hardware",
+    "themes": ["AI", "servers"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "ANET",
+    "assetType": "stock",
+    "sector": "networking",
+    "themes": ["AI", "datacenter"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "VRT",
+    "assetType": "stock",
+    "sector": "infrastructure",
+    "themes": ["AI", "power", "datacenter"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "AMAT",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["equipment", "fab"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "LRCX",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["equipment", "fab"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "KLAC",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["inspection", "AI"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "ASML",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["EUV", "foundry"],
+    "betaType": "mega_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "QCOM",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["mobile", "AI"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "ADI",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["analog", "industrial"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "NXPI",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["auto", "industrial"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "ON",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["EV", "power"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "INTC",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["CPU", "foundry"],
+    "betaType": "turnaround",
+    "marketCapGroup": "mega"
+  },
+  {
     "symbol": "PLTR",
     "assetType": "stock",
     "sector": "software",
     "themes": ["AI", "defense", "data"],
     "betaType": "high_beta_growth",
     "marketCapGroup": "large"
+  },
+  {
+    "symbol": "CRWD",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["cybersecurity", "AI"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "NET",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["cloud", "security"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "SNOW",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["data", "AI", "cloud"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "MDB",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["database", "cloud"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "DDOG",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["monitoring", "cloud"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "PANW",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["cybersecurity", "platform"],
+    "betaType": "growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "ZS",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["security", "cloud"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "NOW",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["enterprise", "workflow"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "TEAM",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["collaboration", "enterprise"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "SHOP",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["ecommerce", "platform"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "APP",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["ads", "mobile", "AI"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "META",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["AI", "ads", "social"],
+    "betaType": "mega_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "AMZN",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["cloud", "AI"],
+    "betaType": "mega_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "MSFT",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["AI", "cloud"],
+    "betaType": "mega_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "GOOGL",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["AI", "search"],
+    "betaType": "mega_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "NFLX",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["streaming", "platform"],
+    "betaType": "growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "TSLA",
+    "assetType": "stock",
+    "sector": "ev",
+    "themes": ["EV", "AI", "robotics"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "COIN",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin", "exchange"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "MSTR",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin", "leverage"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "MARA",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin_mining"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "RIOT",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin_mining"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "IREN",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["AI", "bitcoin_mining"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "LMT",
+    "assetType": "stock",
+    "sector": "defense",
+    "themes": ["military", "missile"],
+    "betaType": "institutional_defensive",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "NOC",
+    "assetType": "stock",
+    "sector": "defense",
+    "themes": ["space", "military"],
+    "betaType": "institutional_defensive",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "RTX",
+    "assetType": "stock",
+    "sector": "defense",
+    "themes": ["aerospace", "missile"],
+    "betaType": "quality_defensive",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "GD",
+    "assetType": "stock",
+    "sector": "defense",
+    "themes": ["military", "submarine"],
+    "betaType": "institutional_defensive",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "LHX",
+    "assetType": "stock",
+    "sector": "defense",
+    "themes": ["communications", "military"],
+    "betaType": "quality_defensive",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "HII",
+    "assetType": "stock",
+    "sector": "defense",
+    "themes": ["shipbuilding", "navy"],
+    "betaType": "slow_continuation",
+    "marketCapGroup": "mid"
   }
 ]

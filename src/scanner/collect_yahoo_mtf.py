@@ -10,6 +10,7 @@ from tqdm import tqdm
 from config.scanner_config import (
     DATA_VERSION,
     START_DATE,
+    END_DATE,
     RAW_DATA_PATH,
     TIMEFRAMES,
 )
@@ -115,7 +116,7 @@ def fetch_yahoo(symbol, interval):
 
     params = {
         "period1": to_unix(START_DATE),
-        "period2": now_unix(),
+        "period2": to_unix(END_DATE) if END_DATE else now_unix(),
         "interval": interval,
         "events": "history,div,splits",
         "includeAdjustedClose": "true",
@@ -301,6 +302,7 @@ def main():
     print("🚀 ALPHA-FLOW V2 MTF RAW SCANNER")
     print("=================================")
     print(f"START_DATE: {START_DATE}")
+    print(f"END_DATE: {END_DATE}")
     print(f"symbols: {len(SYMBOLS)}")
     print("")
 
