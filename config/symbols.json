@@ -382,5 +382,589 @@
     "themes": ["shipbuilding", "navy"],
     "betaType": "slow_continuation",
     "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "CEG",
+    "assetType": "stock",
+    "sector": "power",
+    "themes": ["AI_power", "nuclear", "electricity"],
+    "betaType": "institutional_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "VST",
+    "assetType": "stock",
+    "sector": "power",
+    "themes": ["AI_power", "utility", "electricity"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "TLN",
+    "assetType": "stock",
+    "sector": "power",
+    "themes": ["AI_power", "electricity"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "SMR",
+    "assetType": "stock",
+    "sector": "nuclear",
+    "themes": ["nuclear", "AI_power", "energy"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "OKLO",
+    "assetType": "stock",
+    "sector": "nuclear",
+    "themes": ["nuclear", "AI_power", "energy"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "GEV",
+    "assetType": "stock",
+    "sector": "infrastructure",
+    "themes": ["grid", "AI_power", "electricity"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "ETN",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["power", "electrical", "datacenter"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "PWR",
+    "assetType": "stock",
+    "sector": "infrastructure",
+    "themes": ["grid", "construction", "AI_power"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "NVT",
+    "assetType": "stock",
+    "sector": "electrical",
+    "themes": ["cooling", "datacenter", "power"],
+    "betaType": "growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "DELL",
+    "assetType": "stock",
+    "sector": "hardware",
+    "themes": ["AI", "servers", "datacenter"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "HPE",
+    "assetType": "stock",
+    "sector": "hardware",
+    "themes": ["servers", "AI", "enterprise"],
+    "betaType": "value_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "FLEX",
+    "assetType": "stock",
+    "sector": "manufacturing",
+    "themes": ["datacenter", "electronics"],
+    "betaType": "growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "JCI",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["cooling", "HVAC", "datacenter"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "TT",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["cooling", "HVAC", "AI_power"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "SYM",
+    "assetType": "stock",
+    "sector": "robotics",
+    "themes": ["automation", "warehouse", "AI"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "SERV",
+    "assetType": "stock",
+    "sector": "robotics",
+    "themes": ["AI", "automation", "service_robot"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "ISRG",
+    "assetType": "stock",
+    "sector": "healthcare",
+    "themes": ["robotics", "surgery", "AI"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "ABB",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["robotics", "automation", "factory"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "ROK",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["automation", "factory", "robotics"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "RKLB",
+    "assetType": "stock",
+    "sector": "space",
+    "themes": ["rocket", "satellite", "space"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "ASTS",
+    "assetType": "stock",
+    "sector": "space",
+    "themes": ["satellite", "communications", "space"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "LUNR",
+    "assetType": "stock",
+    "sector": "space",
+    "themes": ["moon", "space", "defense"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "RDW",
+    "assetType": "stock",
+    "sector": "space",
+    "themes": ["satellite", "space", "defense"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "PL",
+    "assetType": "stock",
+    "sector": "space",
+    "themes": ["satellite", "imaging", "AI"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "IONQ",
+    "assetType": "stock",
+    "sector": "quantum",
+    "themes": ["quantum", "next_compute"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "RGTI",
+    "assetType": "stock",
+    "sector": "quantum",
+    "themes": ["quantum", "next_compute"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "QBTS",
+    "assetType": "stock",
+    "sector": "quantum",
+    "themes": ["quantum", "AI"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "QUBT",
+    "assetType": "stock",
+    "sector": "quantum",
+    "themes": ["quantum", "next_compute"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "EMR",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["automation", "infrastructure"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "PH",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["motion", "factory", "automation"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "HON",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["automation", "aerospace", "AI"],
+    "betaType": "institutional_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "PATH",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["automation", "AI", "workflow"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "ESTC",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["search", "AI", "data"],
+    "betaType": "growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "SOUN",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["voice_AI", "AI"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "BBAI",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["AI", "defense", "analytics"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "AI",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["enterprise_AI", "analytics"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "CLSK",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin_mining", "energy"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "CORZ",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin_mining", "AI"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "CIFR",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin_mining", "AI_power"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "WULF",
+    "assetType": "stock",
+    "sector": "crypto",
+    "themes": ["bitcoin_mining", "energy"],
+    "betaType": "hyper_beta",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "TEM",
+    "assetType": "stock",
+    "sector": "healthcare",
+    "themes": ["AI", "healthcare", "diagnostics"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "RXRX",
+    "assetType": "stock",
+    "sector": "biotech",
+    "themes": ["AI_drug_discovery", "healthcare"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "small"
+  },
+  {
+    "symbol": "SDGR",
+    "assetType": "stock",
+    "sector": "biotech",
+    "themes": ["AI_drug_discovery", "simulation"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "ORCL",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["cloud", "AI", "datacenter"],
+    "betaType": "institutional_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "SAP",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["enterprise", "AI", "ERP"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "ADBE",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["creative_AI", "enterprise"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "INTU",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["financial_software", "AI"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "UBER",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["mobility", "platform", "AI"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "DASH",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["delivery", "platform"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "ABNB",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["travel", "platform"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "BKNG",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["travel", "platform"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "MELI",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["ecommerce", "fintech"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "CRM",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["enterprise", "AI", "cloud"],
+    "betaType": "institutional_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "WDAY",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["enterprise", "cloud"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "SNPS",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["chip_design", "EDA", "AI"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "CDNS",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["EDA", "AI", "chip_design"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "FTNT",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["cybersecurity", "network"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "CYBR",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["cybersecurity", "identity"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "DUOL",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["education", "AI", "consumer"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "mid"
+  },
+  {
+    "symbol": "SPOT",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["streaming", "platform"],
+    "betaType": "growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "TTD",
+    "assetType": "stock",
+    "sector": "internet",
+    "themes": ["ads", "AI", "data"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "CMG",
+    "assetType": "stock",
+    "sector": "consumer",
+    "themes": ["consumer_strength", "brand"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "COST",
+    "assetType": "stock",
+    "sector": "consumer",
+    "themes": ["retail", "institutional"],
+    "betaType": "slow_continuation",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "WMT",
+    "assetType": "stock",
+    "sector": "consumer",
+    "themes": ["retail", "defensive"],
+    "betaType": "institutional_defensive",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "LLY",
+    "assetType": "stock",
+    "sector": "healthcare",
+    "themes": ["obesity", "AI_healthcare"],
+    "betaType": "institutional_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "NVO",
+    "assetType": "stock",
+    "sector": "healthcare",
+    "themes": ["obesity", "healthcare"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "VRTX",
+    "assetType": "stock",
+    "sector": "biotech",
+    "themes": ["biotech", "innovation"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "REGN",
+    "assetType": "stock",
+    "sector": "biotech",
+    "themes": ["biotech", "AI_healthcare"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "AXON",
+    "assetType": "stock",
+    "sector": "defense",
+    "themes": ["AI", "security", "law_enforcement"],
+    "betaType": "hyper_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "DE",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["automation", "AI", "agriculture"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "CAT",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["infrastructure", "construction"],
+    "betaType": "cyclical_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "URI",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["infrastructure", "construction"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "GE",
+    "assetType": "stock",
+    "sector": "industrial",
+    "themes": ["aerospace", "power"],
+    "betaType": "institutional_growth",
+    "marketCapGroup": "mega"
   }
 ]
