@@ -4,8 +4,11 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 HIERARCHY_DIR = ROOT / "data" / "hierarchy"
-SYMBOLS_PATH = ROOT / "config" / "symbols.json"
 
+SYMBOL_CONFIG_PATHS = [
+    ROOT / "config" / "symbols.json",
+    ROOT / "config" / "market_symbols.json",
+]
 
 STATE_COLS = [
     "finalHierarchyState",
@@ -25,31 +28,47 @@ STATE_COLS = [
 ]
 
 
+def normalize_symbol(symbol: str) -> str:
+    return (
+        str(symbol).upper().strip().replace("^", "").replace("=", "-").replace(".", "-")
+    )
+
+
 def load_watch_symbols() -> list[str]:
-    if not SYMBOLS_PATH.exists():
-        print(f"⚠️ symbols.json not found: {SYMBOLS_PATH}")
-        return []
+    symbols: set[str] = set()
 
-    with open(SYMBOLS_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    for path in SYMBOL_CONFIG_PATHS:
+        if not path.exists():
+            print(f"⚠️ config not found: {path}")
+            continue
 
-    symbols: list[str] = []
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-    if isinstance(data, list):
-        symbols.extend(data)
+        # 핵심:
+        # themes / sector / betaType 같은 문자열은 절대 symbol로 읽지 않는다.
+        # 오직 dict 안의 "symbol" 필드만 읽는다.
+        if isinstance(data, list):
+            items = data
+        elif isinstance(data, dict):
+            items = []
+            for value in data.values():
+                if isinstance(value, list):
+                    items.extend(value)
+        else:
+            items = []
 
-    elif isinstance(data, dict):
-        for value in data.values():
-            if isinstance(value, list):
-                symbols.extend(value)
+        for item in items:
+            if not isinstance(item, dict):
+                continue
 
-            elif isinstance(value, dict):
-                for nested_value in value.values():
-                    if isinstance(nested_value, list):
-                        symbols.extend(nested_value)
+            symbol = item.get("symbol")
+            if not symbol:
+                continue
 
-    symbols = [str(s).upper().strip() for s in symbols if s]
-    return sorted(set(symbols))
+            symbols.add(normalize_symbol(symbol))
+
+    return sorted(symbols)
 
 
 def load_hierarchy_data() -> pd.DataFrame:
@@ -62,7 +81,7 @@ def load_hierarchy_data() -> pd.DataFrame:
 
     frames = []
 
-    for file in files:
+    for file in sorted(files):
         if file.suffix == ".csv":
             frames.append(pd.read_csv(file))
 
@@ -71,15 +90,21 @@ def load_hierarchy_data() -> pd.DataFrame:
                 data = json.load(f)
 
             if isinstance(data, list):
-                frames.append(pd.DataFrame(data))
-
+                frame = pd.DataFrame(data)
             elif isinstance(data, dict):
-                if "rows" in data:
-                    frames.append(pd.DataFrame(data["rows"]))
-                elif "data" in data:
-                    frames.append(pd.DataFrame(data["data"]))
+                if "rows" in data and isinstance(data["rows"], list):
+                    frame = pd.DataFrame(data["rows"])
+                elif "data" in data and isinstance(data["data"], list):
+                    frame = pd.DataFrame(data["data"])
                 else:
-                    frames.append(pd.DataFrame([data]))
+                    frame = pd.DataFrame([data])
+            else:
+                continue
+
+            if "symbol" not in frame.columns:
+                frame["symbol"] = file.stem
+
+            frames.append(frame)
 
     if not frames:
         raise ValueError("no hierarchy rows loaded")
@@ -93,7 +118,7 @@ def load_hierarchy_data() -> pd.DataFrame:
         raise KeyError("symbol column not found in hierarchy data")
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df["symbol"] = df["symbol"].astype(str).str.upper().str.strip()
+    df["symbol"] = df["symbol"].map(normalize_symbol)
 
     df = df.dropna(subset=["date", "symbol"])
     df = df.sort_values(["date", "symbol"]).reset_index(drop=True)
@@ -109,23 +134,40 @@ def print_value_counts(df: pd.DataFrame, col: str, top_n: int = 30) -> None:
     print(df[col].value_counts(dropna=False).head(top_n))
 
 
+def get_latest_market_date(df: pd.DataFrame):
+    date_counts = df.groupby("date")["symbol"].nunique().sort_index()
+
+    max_symbol_count = int(date_counts.max())
+    min_required_symbols = max(10, int(df["symbol"].nunique() * 0.7))
+
+    valid_dates = date_counts[date_counts >= min_required_symbols]
+
+    if valid_dates.empty:
+        latest_date = date_counts.idxmax()
+        print("\n⚠️ no broad market date found. using date with max symbol count.")
+    else:
+        latest_date = valid_dates.index.max()
+
+    return latest_date, min_required_symbols, max_symbol_count
+
+
 def print_latest_snapshot(df: pd.DataFrame) -> None:
-    latest_date = df["date"].max()
+    latest_date, min_required_symbols, max_symbol_count = get_latest_market_date(df)
     latest = df[df["date"] == latest_date].copy()
 
     print("\n=================================")
-    print("📌 LATEST HIERARCHY SNAPSHOT")
+    print(" LATEST HIERARCHY SNAPSHOT")
     print("=================================")
-    print(f"latest date: {latest_date.date()}")
+    print(f"latest market date: {latest_date.date()}")
     print(f"symbols: {latest['symbol'].nunique()}")
     print(f"rows: {len(latest)}")
+    print(f"required symbols: {min_required_symbols}")
+    print(f"max symbols in one date: {max_symbol_count}")
 
     cols = [
         "symbol",
         "finalHierarchyState",
         "survivabilityBias",
-        "monthlyContinuationState",
-        "weeklyContinuationState",
         "dailyContinuationState",
         "monthlyExhaustionState",
         "weeklyExhaustionState",
@@ -135,24 +177,58 @@ def print_latest_snapshot(df: pd.DataFrame) -> None:
     cols = [c for c in cols if c in latest.columns]
 
     print("\n--- latest symbols ---")
-    print(latest[cols].to_string(index=False))
+    print(latest[cols].sort_values("symbol").to_string(index=False))
 
 
 def print_symbol_recent(df: pd.DataFrame, symbols: list[str], days: int = 20) -> None:
-    if not symbols:
-        print("\n⚠️ watch symbols empty. Skip recent symbol section.")
-        return
-
-    available_symbols = set(df["symbol"].unique())
-    target_symbols = [s for s in symbols if s in available_symbols]
-
     print("\n=================================")
     print("🎯 WATCH SYMBOLS")
     print("=================================")
+
+    if not symbols:
+        print("⚠️ watch symbols empty.")
+        return
+
+    available_symbols = set(df["symbol"].unique())
+    target_symbols = sorted([s for s in symbols if s in available_symbols])
+    missing_symbols = sorted([s for s in symbols if s not in available_symbols])
+
     print(f"config symbols: {len(symbols)}")
     print(f"available in hierarchy: {len(target_symbols)}")
+    print(f"missing from hierarchy: {len(missing_symbols)}")
 
-    for symbol in target_symbols:
+    if missing_symbols:
+        print("\n--- missing sample ---")
+        print(missing_symbols[:50])
+
+    latest_date, _, _ = get_latest_market_date(df)
+    latest = df[df["date"] == latest_date].copy()
+
+    print("\n--- watch symbols latest state summary ---")
+
+    cols = [
+        "date",
+        "symbol",
+        "finalHierarchyState",
+        "survivabilityBias",
+        "monthlyContinuationState",
+        "weeklyContinuationState",
+        "dailyContinuationState",
+    ]
+
+    cols = [c for c in cols if c in latest.columns]
+
+    watch_latest = latest[latest["symbol"].isin(target_symbols)].copy()
+
+    if watch_latest.empty:
+        print("⚠️ no watch symbols on latest market date.")
+    else:
+        print(watch_latest[cols].sort_values("symbol").to_string(index=False))
+
+    # 너무 길어지는 것 방지: 최근 20일 상세는 핵심 상태만 출력
+    key_symbols = target_symbols[:20]
+
+    for symbol in key_symbols:
         target = df[df["symbol"] == symbol].tail(days)
 
         if target.empty:
@@ -162,7 +238,7 @@ def print_symbol_recent(df: pd.DataFrame, symbols: list[str], days: int = 20) ->
         print(f"📈 RECENT STATE: {symbol}")
         print("=================================")
 
-        cols = [
+        recent_cols = [
             "date",
             "symbol",
             "finalHierarchyState",
@@ -172,8 +248,8 @@ def print_symbol_recent(df: pd.DataFrame, symbols: list[str], days: int = 20) ->
             "dailyContinuationState",
         ]
 
-        cols = [c for c in cols if c in target.columns]
-        print(target[cols].to_string(index=False))
+        recent_cols = [c for c in recent_cols if c in target.columns]
+        print(target[recent_cols].to_string(index=False))
 
 
 def main() -> None:
