@@ -32,6 +32,10 @@ LIVE_STEPS = [
         "cmd": [PYTHON_EXE, "src/live/build_live_decision_board.py"],
     },
     {
+        "name": "LIVE PRESSURE MEMORY",
+        "cmd": [PYTHON_EXE, "src/live/build_live_pressure_memory.py"],
+    },
+    {
         "name": "LIVE DECISION HTML",
         "cmd": [PYTHON_EXE, "src/live/build_live_decision_board_html.py"],
     },
@@ -122,20 +126,22 @@ def print_live_summary() -> None:
         print("🔥 WATCH TOP")
         for row in board.get("ACTION_WATCH", [])[:10]:
             print(
-                f"  {row['symbol']} | "
-                f"{row['liveMergedState']} | "
-                f"score={row['score']} | "
-                f"move={row['move']}%"
+                f"  {row.get('symbol')} | "
+                f"{row.get('liveMergedState')} | "
+                f"score={row.get('score')} | "
+                f"move={row.get('move')}% | "
+                f"trend={row.get('livePressureTrend', 'NO_MEMORY')}"
             )
 
         print("")
         print("⚠️ RISK TOP")
         for row in board.get("ACTION_RISK_OFF", [])[:10]:
             print(
-                f"  {row['symbol']} | "
-                f"{row['liveMergedState']} | "
-                f"move={row['move']}% | "
-                f"fail={row['failurePressure']}"
+                f"  {row.get('symbol')} | "
+                f"{row.get('liveMergedState')} | "
+                f"move={row.get('move')}% | "
+                f"fail={row.get('failurePressure')} | "
+                f"trend={row.get('livePressureTrend', 'NO_MEMORY')}"
             )
 
     except Exception as e:
