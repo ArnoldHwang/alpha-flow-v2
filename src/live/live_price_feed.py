@@ -5,9 +5,17 @@ import time
 from pathlib import Path
 from datetime import datetime, timezone
 
-import requests
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "src"
+
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from live.providers.yahoo_provider import (
+    fetch_yahoo_quotes_with_retry,
+)
 
 RAW_DAILY_DIR = ROOT / "data" / "raw" / "daily"
 LIVE_FEED_DIR = ROOT / "data" / "live_feed"
@@ -15,19 +23,6 @@ OUTPUT_PATH = LIVE_FEED_DIR / "live_quotes.json"
 
 BATCH_SIZE = 20
 REQUEST_SLEEP_SEC = 5
-TIMEOUT_SEC = 15
-
-YAHOO_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote"
-
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-    "Accept": "application/json,text/plain,*/*",
-}
 
 
 def now_utc():
@@ -54,6 +49,7 @@ def load_symbols():
     if RAW_DAILY_DIR.exists():
         for path in RAW_DAILY_DIR.glob("*.json"):
             symbol = path.stem.strip()
+
             if symbol:
                 symbols.append(symbol)
 
@@ -73,22 +69,12 @@ def load_previous_quotes():
         with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        items = data.get("items", data) if isinstance(data, dict) else data
+        items = data.get("items", [])
 
-        if isinstance(items, list):
-            return {
-                row.get("symbol"): row
-                for row in items
-                if isinstance(row, dict) and row.get("symbol")
-            }
-
-        if isinstance(items, dict):
-            return items
+        return {row.get("symbol"): row for row in items if row.get("symbol")}
 
     except Exception:
         return {}
-
-    return {}
 
 
 def calc_pct(current, base):
@@ -114,23 +100,32 @@ def calc_close_position(price, low, high):
 
 def normalize_quote(q):
     symbol = q.get("symbol")
+
     price = q.get("regularMarketPrice")
     prev_close = q.get("regularMarketPreviousClose")
     open_price = q.get("regularMarketOpen")
+
     high = q.get("regularMarketDayHigh")
     low = q.get("regularMarketDayLow")
+
     volume = q.get("regularMarketVolume")
+
     avg_volume = q.get("averageDailyVolume3Month") or q.get("averageDailyVolume10Day")
 
     day_change_pct = q.get("regularMarketChangePercent")
+
     if day_change_pct is None:
         day_change_pct = calc_pct(price, prev_close)
 
     intraday_from_open_pct = calc_pct(price, open_price)
 
     volume_ratio = None
+
     if avg_volume and safe_float(avg_volume) > 0:
-        volume_ratio = round(safe_float(volume) / safe_float(avg_volume), 4)
+        volume_ratio = round(
+            safe_float(volume) / safe_float(avg_volume),
+            4,
+        )
 
     close_position = calc_close_position(price, low, high)
 
@@ -142,7 +137,7 @@ def normalize_quote(q):
         "status": status,
         "marketState": q.get("marketState"),
         "currency": q.get("currency"),
-        "exchangeName": q.get("fullExchangeName") or q.get("exchange"),
+        "exchangeName": (q.get("fullExchangeName") or q.get("exchange")),
         "instrumentType": q.get("quoteType"),
         "regularMarketPrice": price,
         "regularMarketPreviousClose": prev_close,
@@ -173,59 +168,19 @@ def normalize_quote(q):
     }
 
 
-def fetch_batch(symbols):
-    params = {
-        "symbols": ",".join(symbols),
-        "fields": ",".join(
-            [
-                "symbol",
-                "regularMarketPrice",
-                "regularMarketPreviousClose",
-                "regularMarketOpen",
-                "regularMarketDayHigh",
-                "regularMarketDayLow",
-                "regularMarketVolume",
-                "regularMarketChangePercent",
-                "averageDailyVolume3Month",
-                "averageDailyVolume10Day",
-                "marketState",
-                "currency",
-                "exchange",
-                "fullExchangeName",
-                "quoteType",
-            ]
-        ),
-    }
+def build_stale_row(symbol, previous, error):
+    row = dict(previous)
 
-    response = requests.get(
-        YAHOO_QUOTE_URL,
-        params=params,
-        headers=HEADERS,
-        timeout=TIMEOUT_SEC,
-    )
+    row["status"] = "STALE_OK"
+    row["staleReason"] = str(error)
+    row["lastFetchFailedAtUtc"] = now_utc()
 
-    if response.status_code == 429:
-        raise RuntimeError("YAHOO_RATE_LIMIT_429")
-
-    response.raise_for_status()
-
-    data = response.json()
-    result = data.get("quoteResponse", {}).get("result", [])
-
-    return result
+    return row
 
 
-def build_error_row(symbol, error, previous=None):
-    if previous and previous.get("status") == "OK":
-        row = dict(previous)
-        row["status"] = "STALE_OK"
-        row["staleReason"] = str(error)
-        row["lastFetchFailedAtUtc"] = now_utc()
-        return row
-
+def build_error_row(symbol, error):
     return {
         "symbol": symbol,
-        "yahooSymbol": symbol,
         "status": "ERROR",
         "error": str(error),
         "regularMarketPrice": None,
@@ -236,10 +191,13 @@ def build_error_row(symbol, error, previous=None):
 
 def main():
     print("=================================")
-    print("🔥 LIVE PRICE FEED - BATCH YAHOO QUOTE")
+    print("🔥 LIVE PRICE FEED")
     print("=================================")
 
-    LIVE_FEED_DIR.mkdir(parents=True, exist_ok=True)
+    LIVE_FEED_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     symbols = load_symbols()
     previous_quotes = load_previous_quotes()
@@ -248,15 +206,21 @@ def main():
     print(f"batchSize: {BATCH_SIZE}")
 
     rows_by_symbol = {}
+
     ok_count = 0
     stale_count = 0
     error_count = 0
 
-    for batch_index, batch in enumerate(chunk_list(symbols, BATCH_SIZE), start=1):
-        print(f"\nbatch {batch_index}: {len(batch)} symbols")
+    for batch_index, batch in enumerate(
+        chunk_list(symbols, BATCH_SIZE),
+        start=1,
+    ):
+        print("")
+        print(f"batch {batch_index}: {len(batch)} symbols")
 
         try:
-            quotes = fetch_batch(batch)
+            quotes = fetch_yahoo_quotes_with_retry(batch)
+
             quote_map = {q.get("symbol"): q for q in quotes if q.get("symbol")}
 
             for symbol in batch:
@@ -264,31 +228,45 @@ def main():
 
                 if q:
                     row = normalize_quote(q)
-                    rows_by_symbol[symbol] = row
 
                     if row["status"] == "OK":
                         ok_count += 1
                     else:
                         previous = previous_quotes.get(symbol)
-                        rows_by_symbol[symbol] = build_error_row(
-                            symbol,
-                            "missing regularMarketPrice",
-                            previous,
-                        )
-                        if previous and previous.get("status") == "OK":
+
+                        if previous and previous.get("status") in [
+                            "OK",
+                            "STALE_OK",
+                        ]:
+                            row = build_stale_row(
+                                symbol,
+                                previous,
+                                "missing market price",
+                            )
                             stale_count += 1
                         else:
                             error_count += 1
+
+                    rows_by_symbol[symbol] = row
+
                 else:
                     previous = previous_quotes.get(symbol)
-                    rows_by_symbol[symbol] = build_error_row(
-                        symbol,
-                        "symbol not returned by yahoo batch quote",
-                        previous,
-                    )
-                    if previous and previous.get("status") == "OK":
+
+                    if previous and previous.get("status") in [
+                        "OK",
+                        "STALE_OK",
+                    ]:
+                        rows_by_symbol[symbol] = build_stale_row(
+                            symbol,
+                            previous,
+                            "symbol not returned",
+                        )
                         stale_count += 1
                     else:
+                        rows_by_symbol[symbol] = build_error_row(
+                            symbol,
+                            "symbol not returned",
+                        )
                         error_count += 1
 
         except Exception as e:
@@ -296,16 +274,23 @@ def main():
 
             for symbol in batch:
                 previous = previous_quotes.get(symbol)
-                rows_by_symbol[symbol] = build_error_row(symbol, e, previous)
 
-                if previous and previous.get("status") == "OK":
+                if previous and previous.get("status") in [
+                    "OK",
+                    "STALE_OK",
+                ]:
+                    rows_by_symbol[symbol] = build_stale_row(
+                        symbol,
+                        previous,
+                        e,
+                    )
                     stale_count += 1
                 else:
+                    rows_by_symbol[symbol] = build_error_row(
+                        symbol,
+                        e,
+                    )
                     error_count += 1
-
-            if "429" in str(e) or "YAHOO_RATE_LIMIT" in str(e):
-                print("⏳ rate limited. sleeping 20s...")
-                time.sleep(20)
 
         time.sleep(REQUEST_SLEEP_SEC)
 
@@ -313,7 +298,7 @@ def main():
 
     output = {
         "generatedAt": now_utc(),
-        "source": "yahoo_quote_batch",
+        "source": "yahoo_provider",
         "batchSize": BATCH_SIZE,
         "totalSymbols": len(rows),
         "okCount": ok_count,
@@ -323,25 +308,32 @@ def main():
     }
 
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+        json.dump(
+            output,
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     print("")
     print("=================================")
     print("✅ LIVE PRICE FEED SAVED")
     print("=================================")
+
     print(f"ok: {ok_count}")
     print(f"stale: {stale_count}")
     print(f"error: {error_count}")
+
+    print("")
     print(f"saved: {OUTPUT_PATH}")
 
     print("")
     print("sample:")
+
     for row in rows[:10]:
         print(
             row.get("symbol"),
             row.get("status"),
-            "price=",
-            row.get("regularMarketPrice"),
             "move=",
             row.get("dayChangePct"),
         )
