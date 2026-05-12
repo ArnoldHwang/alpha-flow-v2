@@ -1,5 +1,9 @@
-“새 대화 이어갈 프롬프트 줘” // 새 대화 명령어
+“새 대화 이어갈 프롬프트 줘”
 
 1. python -m src.scanner.collect_yahoo_mtf
 
 2. python -m src.snapshots.build_snapshots
+
+3. python -m src.states.build_timeframe_states
+
+4. python -m src.hierarchy.build_hierarchy_states
