@@ -45,9 +45,41 @@ def safe_float(value, default=0.0):
         return default
 
 
+def load_json(path, default):
+    if not path.exists():
+        return default
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
 def chunk_list(items, size):
     for i in range(0, len(items), size):
         yield items[i : i + size]
+
+
+def calc_pct(current, base):
+    current = safe_float(current, None)
+    base = safe_float(base, None)
+
+    if current is None or base is None or base == 0:
+        return None
+
+    return round(((current / base) - 1) * 100, 4)
+
+
+def calc_close_position(price, low, high):
+    price = safe_float(price, None)
+    low = safe_float(low, None)
+    high = safe_float(high, None)
+
+    if price is None or low is None or high is None or high == low:
+        return None
+
+    return round((price - low) / (high - low), 4)
 
 
 def is_alpaca_stock_symbol(symbol):
@@ -83,30 +115,36 @@ def is_alpaca_stock_symbol(symbol):
     return True
 
 
-def load_json(path, default):
+def load_latest_confirmed_close(symbol):
+    """
+    최근 확정 일봉 close 사용.
+    move 계산 핵심.
+    """
+
+    path = RAW_DAILY_DIR / f"{symbol}.json"
+
     if not path.exists():
-        return default
+        return None
 
     try:
         with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+
+        if not isinstance(data, list):
+            return None
+
+        if len(data) == 0:
+            return None
+
+        last = data[-1]
+
+        return safe_float(last.get("close") or last.get("adjClose"))
+
     except Exception:
-        return default
+        return None
 
 
 def extract_top_symbols_from_board():
-    """
-    기존 live decision board에서 점수 높은 심볼만 가져온다.
-
-    중요:
-    live_price_feed는 이번 루프의 첫 단계라서
-    최신 board는 직전 루프 결과를 사용한다.
-
-    이게 의도한 구조다:
-    confirmed/live decision이 좋았던 후보만
-    다음 loop에서 집중 감시한다.
-    """
-
     data = load_json(BOARD_PATH, {})
     board = data.get("board", {})
 
@@ -117,7 +155,7 @@ def extract_top_symbols_from_board():
         "ACTION_CONFIRMING",
         "ACTION_WATCH",
         "ACTION_CAUTION",
-        "ACTION_NEUTRAL",
+        "ACTION_RISK_OFF",
     ]
 
     candidates = []
@@ -137,24 +175,18 @@ def extract_top_symbols_from_board():
             if not is_alpaca_stock_symbol(symbol):
                 continue
 
-            score = safe_float(
-                row.get(
-                    "score", row.get("finalRankScore", row.get("livePressureScore", 0))
-                )
-            )
+            score = safe_float(row.get("score", row.get("livePressureScore", 0)))
 
             move = safe_float(row.get("move", row.get("dayChangePct", 0)))
 
             candidates.append(
                 {
                     "symbol": symbol,
-                    "group": group,
                     "score": score,
                     "move": move,
                 }
             )
 
-    # 같은 symbol 중복 제거: 가장 높은 score만 유지
     best_by_symbol = {}
 
     for item in candidates:
@@ -169,12 +201,7 @@ def extract_top_symbols_from_board():
 
     ranked = sorted(
         best_by_symbol.values(),
-        key=lambda x: (
-            x["group"] == "ACTION_CONFIRMING",
-            x["group"] == "ACTION_WATCH",
-            x["score"],
-            x["move"],
-        ),
+        key=lambda x: (x["score"], x["move"]),
         reverse=True,
     )
 
@@ -192,10 +219,6 @@ def load_fallback_symbols():
                 symbols.append(symbol)
 
     symbols = sorted(set(symbols))
-
-    if not symbols:
-        raise RuntimeError(f"no symbols found: {RAW_DAILY_DIR}")
-
     return symbols[:SYMBOL_LIMIT]
 
 
@@ -226,44 +249,24 @@ def load_previous_quotes():
         return {}
 
 
-def calc_pct(current, base):
-    current = safe_float(current, None)
-    base = safe_float(base, None)
-
-    if current is None or base is None or base == 0:
-        return None
-
-    return round(((current / base) - 1) * 100, 4)
-
-
-def calc_close_position(price, low, high):
-    price = safe_float(price, None)
-    low = safe_float(low, None)
-    high = safe_float(high, None)
-
-    if price is None or low is None or high is None or high == low:
-        return None
-
-    return round((price - low) / (high - low), 4)
-
-
 def normalize_alpaca_bar(symbol, bar, previous=None):
     if previous is None:
         previous = {}
 
-    price = bar.get("c")
-    open_price = bar.get("o")
-    high = bar.get("h")
-    low = bar.get("l")
-    volume = bar.get("v")
+    price = safe_float(bar.get("c"))
+    open_price = safe_float(bar.get("o"))
+    high = safe_float(bar.get("h"))
+    low = safe_float(bar.get("l"))
+    volume = safe_float(bar.get("v"))
+
+    confirmed_close = load_latest_confirmed_close(symbol)
+
+    # 핵심 수정:
+    # move = 현재가 vs 최근 확정 종가
+    day_change_pct = calc_pct(price, confirmed_close)
 
     intraday_from_open_pct = calc_pct(price, open_price)
     close_position = calc_close_position(price, low, high)
-
-    day_change_pct = previous.get("dayChangePct")
-
-    if day_change_pct is None:
-        day_change_pct = intraday_from_open_pct
 
     return {
         "symbol": symbol,
@@ -274,15 +277,13 @@ def normalize_alpaca_bar(symbol, bar, previous=None):
         "exchangeName": previous.get("exchangeName"),
         "instrumentType": previous.get("instrumentType", "EQUITY"),
         "regularMarketPrice": price,
-        "regularMarketPreviousClose": previous.get("regularMarketPreviousClose"),
+        "regularMarketPreviousClose": confirmed_close,
         "regularMarketOpen": open_price,
         "regularMarketDayHigh": high,
         "regularMarketDayLow": low,
         "regularMarketVolume": volume,
         "averageDailyVolume": previous.get("averageDailyVolume"),
-        "dayChangePct": (
-            round(safe_float(day_change_pct), 4) if day_change_pct is not None else None
-        ),
+        "dayChangePct": day_change_pct,
         "intradayFromOpenPct": intraday_from_open_pct,
         "volumeRatio": previous.get("volumeRatio"),
         "closePosition": close_position,
@@ -301,6 +302,7 @@ def normalize_alpaca_bar(symbol, bar, previous=None):
         "alpacaBarTime": bar.get("t"),
         "alpacaVwap": bar.get("vw"),
         "alpacaTradeCount": bar.get("n"),
+        "confirmedClose": confirmed_close,
         "fetchedAtUtc": now_utc(),
     }
 
@@ -379,24 +381,14 @@ def main():
                     if row["status"] == "OK":
                         ok_count += 1
                     else:
-                        previous = previous_quotes.get(symbol)
-
-                        if previous and previous.get("status") in ["OK", "STALE_OK"]:
-                            row = build_stale_row(
-                                symbol,
-                                previous,
-                                "missing alpaca price",
-                            )
-                            stale_count += 1
-                        else:
-                            error_count += 1
+                        error_count += 1
 
                     rows_by_symbol[symbol] = row
 
                 else:
                     previous = previous_quotes.get(symbol)
 
-                    if previous and previous.get("status") in ["OK", "STALE_OK"]:
+                    if previous:
                         rows_by_symbol[symbol] = build_stale_row(
                             symbol,
                             previous,
@@ -416,7 +408,7 @@ def main():
             for symbol in batch:
                 previous = previous_quotes.get(symbol)
 
-                if previous and previous.get("status") in ["OK", "STALE_OK"]:
+                if previous:
                     rows_by_symbol[symbol] = build_stale_row(
                         symbol,
                         previous,
@@ -439,11 +431,6 @@ def main():
         "source": "alpaca_provider",
         "provider": "alpaca",
         "feed": ALPACA_FEED,
-        "symbolSource": (
-            "decision_board_top_symbols"
-            if BOARD_PATH.exists()
-            else "fallback_raw_daily"
-        ),
         "batchSize": BATCH_SIZE,
         "totalSymbols": len(rows),
         "okCount": ok_count,
@@ -470,17 +457,11 @@ def main():
     print(f"error: {error_count}")
 
     print("")
-    print(f"saved: {OUTPUT_PATH}")
-
-    print("")
     print("sample:")
 
     for row in rows[:10]:
         print(
             row.get("symbol"),
-            row.get("status"),
-            "provider=",
-            row.get("provider"),
             "price=",
             row.get("regularMarketPrice"),
             "move=",

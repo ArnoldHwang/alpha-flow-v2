@@ -163,6 +163,13 @@ def main():
       line-height: 1.4;
     }}
 
+    .layout {{
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      gap: 18px;
+      align-items: start;
+    }}
+
     .group-section {{
       background: rgba(13,20,32,0.84);
       border: 1px solid var(--border);
@@ -230,8 +237,16 @@ def main():
       white-space: nowrap;
     }}
 
+    tr {{
+      cursor: pointer;
+    }}
+
     tr:hover td {{
       background: rgba(78,161,255,0.07);
+    }}
+
+    tr.selected td {{
+      background: rgba(30,232,138,0.08);
     }}
 
     .symbol {{
@@ -300,8 +315,173 @@ def main():
       padding: 28px;
     }}
 
+    .detail-panel {{
+      position: sticky;
+      top: 18px;
+      background: rgba(13,20,32,0.92);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 14px 36px rgba(0,0,0,0.35);
+      max-height: calc(100vh - 42px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }}
+
+    .detail-panel::-webkit-scrollbar {{
+      width: 8px;
+    }}
+
+    .detail-panel::-webkit-scrollbar-thumb {{
+      background: rgba(142,160,184,0.45);
+      border-radius: 999px;
+    }}
+
+    .detail-title {{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }}
+
+    .detail-symbol {{
+      font-size: 28px;
+      font-weight: 950;
+      letter-spacing: -0.03em;
+    }}
+
+    .detail-grade {{
+      font-size: 13px;
+      font-weight: 900;
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: rgba(30,232,138,0.12);
+      border: 1px solid rgba(30,232,138,0.34);
+      color: var(--green);
+      white-space: nowrap;
+    }}
+
+    .detail-help {{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      margin-bottom: 16px;
+    }}
+
+    .metric-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }}
+
+    .metric {{
+      background: rgba(7,11,18,0.56);
+      border: 1px solid rgba(32,48,73,0.72);
+      border-radius: 14px;
+      padding: 12px;
+    }}
+
+    .metric-label {{
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 7px;
+    }}
+
+    .metric-value {{
+      font-size: 18px;
+      font-weight: 950;
+    }}
+
+    .explain-box {{
+      margin-top: 12px;
+      background: rgba(7,11,18,0.56);
+      border: 1px solid rgba(32,48,73,0.72);
+      border-radius: 16px;
+      padding: 14px;
+    }}
+
+    .explain-title {{
+      font-size: 14px;
+      font-weight: 950;
+      margin-bottom: 8px;
+    }}
+
+    .explain-list {{
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.65;
+    }}
+
+    .verdict {{
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.035);
+    }}
+
+    .verdict.good {{
+      border-color: rgba(30,232,138,0.36);
+      background: rgba(30,232,138,0.10);
+    }}
+
+    .verdict.watch {{
+      border-color: rgba(255,207,90,0.36);
+      background: rgba(255,207,90,0.08);
+    }}
+
+    .verdict.bad {{
+      border-color: rgba(255,77,94,0.36);
+      background: rgba(255,77,94,0.08);
+    }}
+
+    .verdict-title {{
+      font-weight: 950;
+      margin-bottom: 5px;
+    }}
+
+    .verdict-text {{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }}
+
+    .signal-banner {{
+      margin-bottom: 12px;
+      padding: 13px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      font-weight: 950;
+      line-height: 1.45;
+    }}
+
+    .signal-buy {{
+      color: var(--green);
+      background: rgba(30,232,138,0.12);
+      border-color: rgba(30,232,138,0.38);
+    }}
+
+    .signal-watch {{
+      color: var(--yellow);
+      background: rgba(255,207,90,0.10);
+      border-color: rgba(255,207,90,0.34);
+    }}
+
+    .signal-risk {{
+      color: var(--red);
+      background: rgba(255,77,94,0.10);
+      border-color: rgba(255,77,94,0.34);
+    }}
+
     @media (max-width: 1200px) {{
       .summary-grid {{ grid-template-columns: repeat(2, 1fr); }}
+      .layout {{ grid-template-columns: 1fr; }}
+      .detail-panel {{ position: relative; top: auto; }}
     }}
 
     @media (max-width: 720px) {{
@@ -309,6 +489,7 @@ def main():
       .hero {{ display: block; }}
       .status-box {{ justify-content: flex-start; margin-top: 14px; }}
       .summary-grid {{ grid-template-columns: 1fr; }}
+      .metric-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
 </head>
@@ -317,7 +498,7 @@ def main():
     <div class="hero">
       <div>
         <h1>🔥 Alpha-Flow V2 Live Symbol Monitor</h1>
-        <div class="subtitle">상위 후보 실시간 감시판 — score / move / live state / trajectory / failure 중심</div>
+        <div class="subtitle">상위 후보 실시간 감시판 — 종목 클릭 시 매수 판단 근거를 한글로 표시</div>
       </div>
       <div class="status-box">
         <div class="badge"><span class="live-dot"></span>Auto Update ON</div>
@@ -327,13 +508,28 @@ def main():
     </div>
 
     <div id="summary" class="summary-grid"></div>
-    <div id="sections"></div>
+
+    <div class="layout">
+      <div id="sections"></div>
+      <aside id="detailPanel" class="detail-panel">
+        <div class="detail-title">
+          <div class="detail-symbol">종목 선택</div>
+          <div class="detail-grade">대기</div>
+        </div>
+        <div class="detail-help">
+          왼쪽 표에서 종목을 누르면 현재 점수, 상승률, 추세 지속 상태, 실패 위험을 한글로 풀어서 보여준다.
+        </div>
+      </aside>
+    </div>
   </div>
 
 <script>
 const JSON_PATH = "_live_decision_board.json";
 const REFRESH_MS = 5000;
 const MAX_ROWS = 30;
+
+let CURRENT_DATA = null;
+let SELECTED_SYMBOL = null;
 
 const GROUPS = [
   "ACTION_CONFIRMING",
@@ -358,6 +554,11 @@ function esc(v) {{
     .replaceAll('"', "&quot;");
 }}
 
+function nval(v) {{
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}}
+
 function num(v, d = 2) {{
   const n = Number(v);
   if (!Number.isFinite(n)) return "-";
@@ -367,9 +568,9 @@ function num(v, d = 2) {{
 function scoreClass(v) {{
   const n = Number(v);
   if (!Number.isFinite(n)) return "score-mid";
-  if (n >= 80) return "score-hot";
-  if (n >= 60) return "score-good";
-  if (n >= 40) return "score-mid";
+  if (n >= 88) return "score-hot";
+  if (n >= 70) return "score-good";
+  if (n >= 50) return "score-mid";
   if (n >= 0) return "score-weak";
   return "score-bad";
 }}
@@ -399,6 +600,169 @@ function trendClass(v) {{
   return "trend-flat";
 }}
 
+function stateKo(v) {{
+  const s = String(v || "");
+  if (s.includes("RECOVERY_EXTENSION")) return "회복 이후 재가속 관찰 상태";
+  if (s.includes("RECOVERY_WATCHLIST")) return "회복 초입 관찰 상태";
+  if (s.includes("UNDER_PRESSURE")) return "장중 압박 발생";
+  if (s.includes("FAILING")) return "장중 실패 위험";
+  if (s.includes("BREAKDOWN")) return "붕괴 확인 위험";
+  if (s.includes("DISTRIBUTION")) return "분산/매물 부담";
+  return "중립 상태";
+}}
+
+function trajectoryKo(v) {{
+  const s = String(v || "");
+  if (s.includes("RECOVERY")) return "최근 흐름이 회복 방향으로 이어지는 중";
+  if (s.includes("ACCELERATING")) return "가속 흐름";
+  if (s.includes("DISTRIBUTION")) return "매물 출회 흐름";
+  if (s.includes("BREAKDOWN")) return "하락 지속 흐름";
+  if (s.includes("STABLE")) return "안정적인 추세 지속 흐름";
+  return "명확한 흐름 부족";
+}}
+
+function trendKo(v) {{
+  const s = String(v || "");
+  if (s.includes("RECOVERY_PRESSURE_BUILDING")) return "회복 압력이 쌓이는 중";
+  if (s.includes("PERSISTENT_STRONG_PRESSURE")) return "강한 압력이 유지되는 중";
+  if (s.includes("IMPROVING")) return "장중 힘이 개선되는 중";
+  if (s.includes("DETERIORATING")) return "장중 힘이 약해지는 중";
+  if (s.includes("WEAK")) return "약한 압력";
+  if (s.includes("STABLE")) return "큰 변화 없이 안정";
+  return "아직 판단 근거 부족";
+}}
+
+function groupKo(v) {{
+  if (v === "ACTION_CONFIRMING") return "강한 확인 후보";
+  if (v === "ACTION_WATCH") return "관찰 후보";
+  if (v === "ACTION_CAUTION") return "주의 후보";
+  if (v === "ACTION_RISK_OFF") return "위험 회피 후보";
+  return "중립";
+}}
+
+function verdictFor(item) {{
+  const score = nval(item.score);
+  const move = nval(item.move);
+  const failure = nval(item.failurePressure);
+  const trend = String(item.livePressureTrend || "");
+  const group = String(item.decisionGroup || "");
+
+  if (
+    score >= 88 &&
+    move >= 1 &&
+    failure <= 45 &&
+    (trend.includes("BUILDING") || trend.includes("STRONG") || trend.includes("IMPROVING")) &&
+    group !== "ACTION_RISK_OFF"
+  ) {{
+    return {{
+      cls: "good",
+      title: "매수 검토 가능",
+      text: "구조 점수와 장중 흐름이 같이 좋다. 다만 실제 매수는 시장 지수와 손절 기준까지 같이 확인해야 한다."
+    }};
+  }}
+
+  if (group === "ACTION_RISK_OFF" || failure >= 55 || trend.includes("DETERIORATING")) {{
+    return {{
+      cls: "bad",
+      title: "매수 보류",
+      text: "점수보다 실패 압력이나 장중 약화가 더 중요하다. 지금은 따라가기보다 관찰이 안전하다."
+    }};
+  }}
+
+  return {{
+    cls: "watch",
+    title: "관찰 후보",
+    text: "구조는 살아있지만 장중 확인이 충분하지 않다. 상승률, 실패 압력, 시장 상태가 더 좋아지는지 확인해야 한다."
+  }};
+}}
+
+function signalFor(item) {{
+  const score = nval(item.score);
+  const confirmed = nval(item.confirmedScore);
+  const move = nval(item.move);
+  const failure = nval(item.failurePressure);
+  const trend = String(item.livePressureTrend || "");
+  const group = String(item.decisionGroup || "");
+
+  if (
+    score >= 90 &&
+    confirmed >= 85 &&
+    move >= 1 &&
+    failure <= 45 &&
+    (trend.includes("BUILDING") || trend.includes("STRONG") || trend.includes("IMPROVING")) &&
+    group !== "ACTION_RISK_OFF"
+  ) {{
+    return {{
+      cls: "signal-buy",
+      text: "🟢 강한 매수 검토 시그널: 구조 점수, 장중 상승, 회복 압력이 같이 맞는다."
+    }};
+  }}
+
+  if (
+    score >= 80 &&
+    confirmed >= 85 &&
+    failure <= 50 &&
+    !trend.includes("DETERIORATING")
+  ) {{
+    return {{
+      cls: "signal-watch",
+      text: "🟡 우선 감시 시그널: 구조는 강하지만 장중 확인이 아직 부족하다."
+    }};
+  }}
+
+  if (
+    group === "ACTION_RISK_OFF" ||
+    failure >= 55 ||
+    trend.includes("DETERIORATING")
+  ) {{
+    return {{
+      cls: "signal-risk",
+      text: "🔴 보류 시그널: 실패 압력이나 장중 약화가 보여서 추격은 위험하다."
+    }};
+  }}
+
+  return {{
+    cls: "signal-watch",
+    text: "🟡 관찰 시그널: 아직 확실한 매수 확인은 부족하다."
+  }};
+}}
+
+function explainReasons(item) {{
+  const reasons = [];
+  const score = nval(item.score);
+  const confirmed = nval(item.confirmedScore);
+  const move = nval(item.move);
+  const failure = nval(item.failurePressure);
+  const breakout = nval(item.breakoutPressure);
+  const distribution = nval(item.distributionPressure);
+  const trend = String(item.livePressureTrend || "");
+
+  if (confirmed >= 85) reasons.push("확정봉 기반 구조 점수가 높다. 중장기 추세 지속 후보로 볼 수 있다.");
+  else if (confirmed >= 70) reasons.push("확정봉 구조는 양호하지만 최상급은 아니다.");
+  else reasons.push("확정봉 구조 점수가 강하지 않다.");
+
+  if (score >= 88) reasons.push("실시간 보정 점수가 높다. 오늘 집중 감시할 만하다.");
+  else if (score >= 70) reasons.push("실시간 보정 점수는 양호하다.");
+  else reasons.push("실시간 보정 점수는 아직 강한 매수 판단까지 부족하다.");
+
+  if (move >= 2) reasons.push("현재 상승률이 강하다. 장중 수급 확인이 붙고 있다.");
+  else if (move >= 0.5) reasons.push("현재 상승률은 약하지만 플러스 흐름이다.");
+  else if (move > -0.5) reasons.push("현재 움직임은 거의 보합이다. 추가 확인이 필요하다.");
+  else reasons.push("현재 움직임이 음수다. 장중 힘이 약할 수 있다.");
+
+  if (failure >= 55) reasons.push("실패 압력이 높다. 추격 매수 위험이 크다.");
+  else if (failure >= 45) reasons.push("실패 압력이 중간 이상이다. 매수 전 추가 확인이 필요하다.");
+  else reasons.push("실패 압력이 낮은 편이다.");
+
+  if (breakout >= 55) reasons.push("돌파 압력이 양호하다.");
+  if (distribution >= 30) reasons.push("분산/매물 부담이 존재한다.");
+
+  if (trend.includes("DETERIORATING")) reasons.push("최근 live 흐름이 약해지고 있다.");
+  else if (trend.includes("BUILDING") || trend.includes("STRONG")) reasons.push("최근 live 흐름이 좋아지고 있다.");
+
+  return reasons;
+}}
+
 function sortedRows(items) {{
   return [...items].sort((a, b) => {{
     const scoreA = Number(a.score || 0);
@@ -426,12 +790,191 @@ function renderSummary(data) {{
   }}).join("");
 }}
 
+function renderDetail(item) {{
+  const panel = document.getElementById("detailPanel");
+
+  if (!item) {{
+    panel.innerHTML = `
+      <div class="detail-title">
+        <div class="detail-symbol">종목 선택</div>
+        <div class="detail-grade">대기</div>
+      </div>
+      <div class="detail-help">
+        왼쪽 표에서 종목을 누르면 현재 점수, 상승률, 추세 지속 상태, 실패 위험을 한글로 풀어서 보여준다.
+      </div>
+    `;
+    return;
+  }}
+
+  const verdict = verdictFor(item);
+  const signal = signalFor(item);
+  const reasons = explainReasons(item);
+
+  panel.innerHTML = `
+    <div class="detail-title">
+      <div class="detail-symbol">${{esc(item.symbol)}}</div>
+      <div class="detail-grade">${{groupKo(item.decisionGroup)}}</div>
+    </div>
+
+    <div class="detail-help">
+      이 패널은 매수 신호가 아니라 판단 근거 확인용이다. 점수가 높아도 실패 압력과 장중 흐름을 같이 봐야 한다.
+    </div>
+
+    <div class="signal-banner ${{signal.cls}}">
+      ${{signal.text}}
+    </div>
+
+    <div class="metric-grid">
+
+      <div class="metric">
+        <div class="metric-label">
+          실시간 보정 점수<br>
+          <span style="font-size:11px;color:#8ea0b8;">↑ 높을수록 강함</span>
+        </div>
+        <div class="metric-value ${{scoreClass(item.score)}}">${{num(item.score)}}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${{
+            nval(item.score) >= 90
+              ? "매우 강한 continuation 후보"
+              : nval(item.score) >= 80
+              ? "강한 continuation 후보"
+              : nval(item.score) >= 70
+              ? "관찰 가치 있음"
+              : nval(item.score) >= 60
+              ? "애매한 상태"
+              : "약한 상태"
+          }}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">
+          확정봉 구조 점수<br>
+          <span style="font-size:11px;color:#8ea0b8;">↑ 높을수록 좋음</span>
+        </div>
+        <div class="metric-value ${{scoreClass(item.confirmedScore)}}">${{num(item.confirmedScore)}}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${{
+            nval(item.confirmedScore) >= 90
+              ? "최상위 구조"
+              : nval(item.confirmedScore) >= 80
+              ? "좋은 continuation 구조"
+              : nval(item.confirmedScore) >= 70
+              ? "보통 이상 구조"
+              : "약한 구조"
+          }}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">
+          현재 상승률<br>
+          <span style="font-size:11px;color:#8ea0b8;">↑ 높을수록 강한 수급</span>
+        </div>
+        <div class="metric-value ${{moveClass(item.move)}}">${{num(item.move)}}%</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${{
+            nval(item.move) >= 3
+              ? "강한 장중 상승"
+              : nval(item.move) >= 1
+              ? "양호한 흐름"
+              : nval(item.move) >= -0.5
+              ? "보합권"
+              : "장중 약세"
+          }}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">
+          실패 압력<br>
+          <span style="font-size:11px;color:#8ea0b8;">↓ 낮을수록 안정</span>
+        </div>
+        <div class="metric-value ${{failureClass(item.failurePressure)}}">${{num(item.failurePressure)}}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${{
+            nval(item.failurePressure) <= 35
+              ? "추세 안정 구간"
+              : nval(item.failurePressure) <= 45
+              ? "정상 흔들림 구간"
+              : nval(item.failurePressure) <= 55
+              ? "실패 위험 증가"
+              : "붕괴 위험 높음"
+          }}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">
+          돌파 압력<br>
+          <span style="font-size:11px;color:#8ea0b8;">↑ 높을수록 강함</span>
+        </div>
+        <div class="metric-value">${{num(item.breakoutPressure)}}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${{
+            nval(item.breakoutPressure) >= 70
+              ? "강한 돌파 압력"
+              : nval(item.breakoutPressure) >= 55
+              ? "양호한 돌파"
+              : nval(item.breakoutPressure) >= 40
+              ? "보통 수준"
+              : "돌파 힘 부족"
+          }}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">
+          분산/매물 압력<br>
+          <span style="font-size:11px;color:#8ea0b8;">↓ 낮을수록 좋음</span>
+        </div>
+        <div class="metric-value">${{num(item.distributionPressure)}}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${{
+            nval(item.distributionPressure) <= 15
+              ? "매물 부담 낮음"
+              : nval(item.distributionPressure) <= 30
+              ? "보통 수준"
+              : nval(item.distributionPressure) <= 45
+              ? "매물 부담 증가"
+              : "분산 위험 높음"
+          }}
+        </div>
+      </div>
+
+    </div>
+
+    <div class="explain-box">
+      <div class="explain-title">상태 해석</div>
+      <ul class="explain-list">
+        <li>Live State: ${{stateKo(item.liveMergedState)}} <br><span class="neutral">${{esc(item.liveMergedState)}}</span></li>
+        <li>Trajectory: ${{trajectoryKo(item.trajectory)}} <br><span class="neutral">${{esc(item.trajectory)}}</span></li>
+        <li>Trend: ${{trendKo(item.livePressureTrend)}} <br><span class="${{trendClass(item.livePressureTrend)}}">${{esc(item.livePressureTrend || "-")}}</span></li>
+        <li>Hierarchy: ${{esc(item.hierarchy || "-")}}</li>
+        <li>Bias: ${{esc(item.bias || "-")}}</li>
+      </ul>
+    </div>
+
+    <div class="explain-box">
+      <div class="explain-title">왜 이렇게 판단하는가</div>
+      <ul class="explain-list">
+        ${{reasons.map(r => `<li>${{esc(r)}}</li>`).join("")}}
+      </ul>
+    </div>
+
+    <div class="verdict ${{verdict.cls}}">
+      <div class="verdict-title">${{verdict.title}}</div>
+      <div class="verdict-text">${{verdict.text}}</div>
+    </div>
+  `;
+}}
+
 function renderTable(group, items) {{
   const meta = META[group];
   const rows = sortedRows(items || []);
 
   let body = rows.map(item => `
-    <tr>
+    <tr data-symbol="${{esc(item.symbol)}}" onclick="selectSymbol('${{esc(item.symbol)}}')">
       <td class="symbol">${{esc(item.symbol)}}</td>
       <td><span class="score ${{scoreClass(item.score)}}">${{num(item.score)}}</span></td>
       <td><span class="move ${{moveClass(item.move)}}">${{num(item.move)}}%</span></td>
@@ -476,12 +1019,37 @@ function renderTable(group, items) {{
   `;
 }}
 
+function findSymbol(symbol) {{
+  if (!CURRENT_DATA) return null;
+  const board = CURRENT_DATA.board || {{}};
+
+  for (const group of GROUPS) {{
+    const rows = board[group] || [];
+    const found = rows.find(x => x.symbol === symbol);
+    if (found) return found;
+  }}
+
+  return null;
+}}
+
+function selectSymbol(symbol) {{
+  SELECTED_SYMBOL = symbol;
+  renderDetail(findSymbol(symbol));
+
+  document.querySelectorAll("tr.selected").forEach(row => row.classList.remove("selected"));
+  document.querySelectorAll(`tr[data-symbol="${{CSS.escape(symbol)}}"]`).forEach(row => row.classList.add("selected"));
+}}
+
 function renderSections(data) {{
   const board = data.board || {{}};
 
   document.getElementById("sections").innerHTML = GROUPS.map(group => {{
     return renderTable(group, board[group] || []);
   }}).join("");
+
+  if (SELECTED_SYMBOL) {{
+    renderDetail(findSymbol(SELECTED_SYMBOL));
+  }}
 }}
 
 async function loadBoard() {{
@@ -492,9 +1060,24 @@ async function loadBoard() {{
     if (!res.ok) throw new Error("fetch failed: " + res.status);
 
     const data = await res.json();
+    CURRENT_DATA = data;
 
     renderSummary(data);
     renderSections(data);
+
+    if (!SELECTED_SYMBOL) {{
+      const board = data.board || {{}};
+      const first =
+        (board.ACTION_CONFIRMING || [])[0] ||
+        (board.ACTION_WATCH || [])[0] ||
+        (board.ACTION_CAUTION || [])[0] ||
+        (board.ACTION_RISK_OFF || [])[0];
+
+      if (first && first.symbol) {{
+        SELECTED_SYMBOL = first.symbol;
+        renderDetail(first);
+      }}
+    }}
 
     document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString();
   }} catch (e) {{
