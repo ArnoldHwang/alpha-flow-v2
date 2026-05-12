@@ -1,66 +1,40 @@
 # src/live/live_price_feed.py
 
 import json
-import os
 import time
+from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 
 import requests
 
-INPUT_DIR = "data/live_states"
-OUTPUT_DIR = "data/live_feed"
-OUTPUT_PATH = os.path.join(OUTPUT_DIR, "live_quotes.json")
+ROOT = Path(__file__).resolve().parents[2]
 
-YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+RAW_DAILY_DIR = ROOT / "data" / "raw" / "daily"
+LIVE_FEED_DIR = ROOT / "data" / "live_feed"
+OUTPUT_PATH = LIVE_FEED_DIR / "live_quotes.json"
 
-REQUEST_SLEEP_SEC = 0.15
+BATCH_SIZE = 20
+REQUEST_SLEEP_SEC = 5
+TIMEOUT_SEC = 15
 
-
-def load_json(path: str) -> List[Dict[str, Any]]:
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    if isinstance(data, list):
-        return data
-
-    return []
+YAHOO_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote"
 
 
-def save_json(path: str, rows: List[Dict[str, Any]]) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(rows, f, ensure_ascii=False, indent=2)
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json,text/plain,*/*",
+}
 
 
-def normalize_symbol(symbol: str) -> str:
-    symbol = str(symbol).strip()
-
-    mapping = {
-        "GC-F": "GC=F",
-        "CL-F": "CL=F",
-        "BZ-F": "BZ=F",
-        "TNX": "^TNX",
-        "VIX": "^VIX",
-        "DX-Y-NYB": "DX-Y.NYB",
-    }
-
-    return mapping.get(symbol, symbol)
+def now_utc():
+    return datetime.now(timezone.utc).isoformat()
 
 
-def restore_symbol(symbol: str) -> str:
-    mapping = {
-        "GC=F": "GC-F",
-        "CL=F": "CL-F",
-        "BZ=F": "BZ-F",
-        "^TNX": "TNX",
-        "^VIX": "VIX",
-        "DX-Y.NYB": "DX-Y-NYB",
-    }
-
-    return mapping.get(symbol, symbol)
-
-
-def safe_float(value: Any, default: float = 0.0) -> float:
+def safe_float(value, default=0.0):
     try:
         if value is None:
             return default
@@ -69,258 +43,308 @@ def safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def load_target_symbols() -> List[str]:
-    summary_path = os.path.join(INPUT_DIR, "_live_state_summary.json")
+def chunk_list(items, size):
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
 
-    if not os.path.exists(summary_path):
-        raise FileNotFoundError(
-            f"live state summary not found: {summary_path}\n"
-            "먼저 실행: python src/live/build_live_state_engine.py"
-        )
 
-    rows = load_json(summary_path)
-
+def load_symbols():
     symbols = []
 
-    for row in rows:
-        if row.get("status") != "OK":
-            continue
+    if RAW_DAILY_DIR.exists():
+        for path in RAW_DAILY_DIR.glob("*.json"):
+            symbol = path.stem.strip()
+            if symbol:
+                symbols.append(symbol)
 
-        symbol = row.get("symbol")
+    symbols = sorted(set(symbols))
 
-        if not symbol:
-            continue
+    if not symbols:
+        raise RuntimeError(f"no symbols found: {RAW_DAILY_DIR}")
 
-        symbols.append(normalize_symbol(symbol))
-
-    return sorted(set(symbols))
+    return symbols
 
 
-def fetch_chart_quote(symbol: str) -> Optional[Dict[str, Any]]:
-    url = YAHOO_CHART_URL.format(symbol=symbol)
-
-    params = {
-        "range": "1d",
-        "interval": "1m",
-        "includePrePost": "false",
-    }
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json,text/plain,*/*",
-    }
+def load_previous_quotes():
+    if not OUTPUT_PATH.exists():
+        return {}
 
     try:
-        response = requests.get(
-            url,
-            params=params,
-            headers=headers,
-            timeout=15,
-        )
+        with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-        if response.status_code != 200:
+        items = data.get("items", data) if isinstance(data, dict) else data
+
+        if isinstance(items, list):
             return {
-                "symbol": restore_symbol(symbol),
-                "yahooSymbol": symbol,
-                "status": "ERROR",
-                "error": f"HTTP_{response.status_code}",
-                "fetchedAtUtc": datetime.now(timezone.utc).isoformat(),
+                row.get("symbol"): row
+                for row in items
+                if isinstance(row, dict) and row.get("symbol")
             }
 
-        data = response.json()
-        result = data.get("chart", {}).get("result", [])
+        if isinstance(items, dict):
+            return items
 
-        if not result:
-            return {
-                "symbol": restore_symbol(symbol),
-                "yahooSymbol": symbol,
-                "status": "ERROR",
-                "error": "NO_RESULT",
-                "fetchedAtUtc": datetime.now(timezone.utc).isoformat(),
-            }
+    except Exception:
+        return {}
 
-        chart = result[0]
-        meta = chart.get("meta", {})
-        indicators = chart.get("indicators", {})
-        quote_list = indicators.get("quote", [])
-
-        if not quote_list:
-            return {
-                "symbol": restore_symbol(symbol),
-                "yahooSymbol": symbol,
-                "status": "ERROR",
-                "error": "NO_QUOTE",
-                "fetchedAtUtc": datetime.now(timezone.utc).isoformat(),
-            }
-
-        quote = quote_list[0]
-
-        closes = quote.get("close", []) or []
-        highs = quote.get("high", []) or []
-        lows = quote.get("low", []) or []
-        opens = quote.get("open", []) or []
-        volumes = quote.get("volume", []) or []
-
-        valid_closes = [safe_float(v, None) for v in closes if v is not None]
-        valid_highs = [safe_float(v, None) for v in highs if v is not None]
-        valid_lows = [safe_float(v, None) for v in lows if v is not None]
-        valid_opens = [safe_float(v, None) for v in opens if v is not None]
-        valid_volumes = [safe_float(v, 0) for v in volumes if v is not None]
-
-        if not valid_closes:
-            return {
-                "symbol": restore_symbol(symbol),
-                "yahooSymbol": symbol,
-                "status": "ERROR",
-                "error": "NO_CLOSE",
-                "fetchedAtUtc": datetime.now(timezone.utc).isoformat(),
-            }
-
-        current_price = valid_closes[-1]
-        previous_close = safe_float(meta.get("previousClose"))
-        open_price = (
-            valid_opens[0]
-            if valid_opens
-            else safe_float(meta.get("regularMarketPrice"))
-        )
-        day_high = max(valid_highs) if valid_highs else current_price
-        day_low = min(valid_lows) if valid_lows else current_price
-        current_volume = sum(valid_volumes)
-
-        regular_market_volume = safe_float(meta.get("regularMarketVolume"))
-        if regular_market_volume > current_volume:
-            current_volume = regular_market_volume
-
-        average_volume = safe_float(meta.get("averageDailyVolume10Day"))
-
-        if average_volume <= 0:
-            average_volume = safe_float(meta.get("averageDailyVolume3Month"))
-
-        day_change_pct = 0.0
-        if previous_close > 0:
-            day_change_pct = (current_price - previous_close) / previous_close * 100
-
-        intraday_from_open_pct = 0.0
-        if open_price > 0:
-            intraday_from_open_pct = (current_price - open_price) / open_price * 100
-
-        volume_ratio = 0.0
-        if average_volume > 0:
-            volume_ratio = current_volume / average_volume
-
-        close_position = 0.5
-        if day_high > day_low:
-            close_position = (current_price - day_low) / (day_high - day_low)
-
-        live_breakout_hint = (
-            current_price >= day_high * 0.995
-            and day_change_pct > 1.0
-            and volume_ratio >= 0.35
-        )
-
-        live_rejection_hint = (
-            close_position < 0.35 and day_change_pct < 0 and volume_ratio >= 0.5
-        )
-
-        return {
-            "symbol": restore_symbol(symbol),
-            "yahooSymbol": symbol,
-            "status": "OK",
-            "marketState": meta.get("marketState"),
-            "currency": meta.get("currency"),
-            "exchangeName": meta.get("exchangeName"),
-            "instrumentType": meta.get("instrumentType"),
-            "regularMarketPrice": round(current_price, 4),
-            "regularMarketPreviousClose": round(previous_close, 4),
-            "regularMarketOpen": round(open_price, 4),
-            "regularMarketDayHigh": round(day_high, 4),
-            "regularMarketDayLow": round(day_low, 4),
-            "regularMarketVolume": round(current_volume, 0),
-            "averageDailyVolume": round(average_volume, 0),
-            "dayChangePct": round(day_change_pct, 2),
-            "intradayFromOpenPct": round(intraday_from_open_pct, 2),
-            "volumeRatio": round(volume_ratio, 3),
-            "closePosition": round(close_position, 3),
-            "liveBreakoutHint": live_breakout_hint,
-            "liveRejectionHint": live_rejection_hint,
-            "fetchedAtUtc": datetime.now(timezone.utc).isoformat(),
-        }
-
-    except Exception as e:
-        return {
-            "symbol": restore_symbol(symbol),
-            "yahooSymbol": symbol,
-            "status": "ERROR",
-            "error": str(e),
-            "fetchedAtUtc": datetime.now(timezone.utc).isoformat(),
-        }
+    return {}
 
 
-def main() -> None:
+def calc_pct(current, base):
+    current = safe_float(current, None)
+    base = safe_float(base, None)
+
+    if current is None or base is None or base == 0:
+        return None
+
+    return round(((current / base) - 1) * 100, 4)
+
+
+def calc_close_position(price, low, high):
+    price = safe_float(price, None)
+    low = safe_float(low, None)
+    high = safe_float(high, None)
+
+    if price is None or low is None or high is None or high == low:
+        return None
+
+    return round((price - low) / (high - low), 4)
+
+
+def normalize_quote(q):
+    symbol = q.get("symbol")
+    price = q.get("regularMarketPrice")
+    prev_close = q.get("regularMarketPreviousClose")
+    open_price = q.get("regularMarketOpen")
+    high = q.get("regularMarketDayHigh")
+    low = q.get("regularMarketDayLow")
+    volume = q.get("regularMarketVolume")
+    avg_volume = q.get("averageDailyVolume3Month") or q.get("averageDailyVolume10Day")
+
+    day_change_pct = q.get("regularMarketChangePercent")
+    if day_change_pct is None:
+        day_change_pct = calc_pct(price, prev_close)
+
+    intraday_from_open_pct = calc_pct(price, open_price)
+
+    volume_ratio = None
+    if avg_volume and safe_float(avg_volume) > 0:
+        volume_ratio = round(safe_float(volume) / safe_float(avg_volume), 4)
+
+    close_position = calc_close_position(price, low, high)
+
+    status = "OK" if price is not None else "ERROR"
+
+    return {
+        "symbol": symbol,
+        "yahooSymbol": symbol,
+        "status": status,
+        "marketState": q.get("marketState"),
+        "currency": q.get("currency"),
+        "exchangeName": q.get("fullExchangeName") or q.get("exchange"),
+        "instrumentType": q.get("quoteType"),
+        "regularMarketPrice": price,
+        "regularMarketPreviousClose": prev_close,
+        "regularMarketOpen": open_price,
+        "regularMarketDayHigh": high,
+        "regularMarketDayLow": low,
+        "regularMarketVolume": volume,
+        "averageDailyVolume": avg_volume,
+        "dayChangePct": (
+            round(safe_float(day_change_pct), 4) if day_change_pct is not None else None
+        ),
+        "intradayFromOpenPct": intraday_from_open_pct,
+        "volumeRatio": volume_ratio,
+        "closePosition": close_position,
+        "liveBreakoutHint": bool(
+            day_change_pct is not None
+            and safe_float(day_change_pct) >= 2
+            and close_position is not None
+            and close_position >= 0.7
+        ),
+        "liveRejectionHint": bool(
+            day_change_pct is not None
+            and safe_float(day_change_pct) <= -2
+            and close_position is not None
+            and close_position <= 0.35
+        ),
+        "fetchedAtUtc": now_utc(),
+    }
+
+
+def fetch_batch(symbols):
+    params = {
+        "symbols": ",".join(symbols),
+        "fields": ",".join(
+            [
+                "symbol",
+                "regularMarketPrice",
+                "regularMarketPreviousClose",
+                "regularMarketOpen",
+                "regularMarketDayHigh",
+                "regularMarketDayLow",
+                "regularMarketVolume",
+                "regularMarketChangePercent",
+                "averageDailyVolume3Month",
+                "averageDailyVolume10Day",
+                "marketState",
+                "currency",
+                "exchange",
+                "fullExchangeName",
+                "quoteType",
+            ]
+        ),
+    }
+
+    response = requests.get(
+        YAHOO_QUOTE_URL,
+        params=params,
+        headers=HEADERS,
+        timeout=TIMEOUT_SEC,
+    )
+
+    if response.status_code == 429:
+        raise RuntimeError("YAHOO_RATE_LIMIT_429")
+
+    response.raise_for_status()
+
+    data = response.json()
+    result = data.get("quoteResponse", {}).get("result", [])
+
+    return result
+
+
+def build_error_row(symbol, error, previous=None):
+    if previous and previous.get("status") == "OK":
+        row = dict(previous)
+        row["status"] = "STALE_OK"
+        row["staleReason"] = str(error)
+        row["lastFetchFailedAtUtc"] = now_utc()
+        return row
+
+    return {
+        "symbol": symbol,
+        "yahooSymbol": symbol,
+        "status": "ERROR",
+        "error": str(error),
+        "regularMarketPrice": None,
+        "dayChangePct": None,
+        "fetchedAtUtc": now_utc(),
+    }
+
+
+def main():
     print("=================================")
-    print("🧠 LIVE PRICE FEED")
+    print("🔥 LIVE PRICE FEED - BATCH YAHOO QUOTE")
     print("=================================")
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    LIVE_FEED_DIR.mkdir(parents=True, exist_ok=True)
 
-    symbols = load_target_symbols()
+    symbols = load_symbols()
+    previous_quotes = load_previous_quotes()
 
-    print(f"symbols: {len(symbols):,}")
+    print(f"symbols: {len(symbols)}")
+    print(f"batchSize: {BATCH_SIZE}")
 
-    rows = []
+    rows_by_symbol = {}
+    ok_count = 0
+    stale_count = 0
+    error_count = 0
 
-    for idx, symbol in enumerate(symbols, start=1):
-        row = fetch_chart_quote(symbol)
-        rows.append(row)
+    for batch_index, batch in enumerate(chunk_list(symbols, BATCH_SIZE), start=1):
+        print(f"\nbatch {batch_index}: {len(batch)} symbols")
 
-        if idx % 20 == 0:
-            print(f"fetched: {idx}/{len(symbols)}")
+        try:
+            quotes = fetch_batch(batch)
+            quote_map = {q.get("symbol"): q for q in quotes if q.get("symbol")}
+
+            for symbol in batch:
+                q = quote_map.get(symbol)
+
+                if q:
+                    row = normalize_quote(q)
+                    rows_by_symbol[symbol] = row
+
+                    if row["status"] == "OK":
+                        ok_count += 1
+                    else:
+                        previous = previous_quotes.get(symbol)
+                        rows_by_symbol[symbol] = build_error_row(
+                            symbol,
+                            "missing regularMarketPrice",
+                            previous,
+                        )
+                        if previous and previous.get("status") == "OK":
+                            stale_count += 1
+                        else:
+                            error_count += 1
+                else:
+                    previous = previous_quotes.get(symbol)
+                    rows_by_symbol[symbol] = build_error_row(
+                        symbol,
+                        "symbol not returned by yahoo batch quote",
+                        previous,
+                    )
+                    if previous and previous.get("status") == "OK":
+                        stale_count += 1
+                    else:
+                        error_count += 1
+
+        except Exception as e:
+            print(f"❌ batch failed: {e}")
+
+            for symbol in batch:
+                previous = previous_quotes.get(symbol)
+                rows_by_symbol[symbol] = build_error_row(symbol, e, previous)
+
+                if previous and previous.get("status") == "OK":
+                    stale_count += 1
+                else:
+                    error_count += 1
+
+            if "429" in str(e) or "YAHOO_RATE_LIMIT" in str(e):
+                print("⏳ rate limited. sleeping 20s...")
+                time.sleep(20)
 
         time.sleep(REQUEST_SLEEP_SEC)
 
-    save_json(OUTPUT_PATH, rows)
+    rows = [rows_by_symbol[s] for s in symbols]
 
-    ok_rows = [r for r in rows if r.get("status") == "OK"]
-    error_rows = [r for r in rows if r.get("status") != "OK"]
+    output = {
+        "generatedAt": now_utc(),
+        "source": "yahoo_quote_batch",
+        "batchSize": BATCH_SIZE,
+        "totalSymbols": len(rows),
+        "okCount": ok_count,
+        "staleCount": stale_count,
+        "errorCount": error_count,
+        "items": rows,
+    }
+
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
 
     print("")
     print("=================================")
-    print("✅ LIVE QUOTES SAVED")
+    print("✅ LIVE PRICE FEED SAVED")
     print("=================================")
-    print(f"ok: {len(ok_rows):,}")
-    print(f"errors: {len(error_rows):,}")
+    print(f"ok: {ok_count}")
+    print(f"stale: {stale_count}")
+    print(f"error: {error_count}")
     print(f"saved: {OUTPUT_PATH}")
 
-    if error_rows:
-        print("")
-        print("=================================")
-        print("⚠️ ERRORS SAMPLE")
-        print("=================================")
-        for row in error_rows[:20]:
-            print(row.get("symbol"), row.get("error"))
-
     print("")
-    print("=================================")
-    print("🔥 SAMPLE")
-    print("=================================")
-
-    for row in ok_rows[:30]:
+    print("sample:")
+    for row in rows[:10]:
         print(
-            row["symbol"],
+            row.get("symbol"),
+            row.get("status"),
             "price=",
-            row["regularMarketPrice"],
-            "change%=",
-            row["dayChangePct"],
-            "volRatio=",
-            row["volumeRatio"],
-            "breakout=",
-            row["liveBreakoutHint"],
-            "reject=",
-            row["liveRejectionHint"],
+            row.get("regularMarketPrice"),
+            "move=",
+            row.get("dayChangePct"),
         )
-
-    print("")
-    print("✅ DONE")
 
 
 if __name__ == "__main__":
