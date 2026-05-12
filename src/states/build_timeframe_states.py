@@ -116,6 +116,16 @@ def build_continuation_state(row):
     exhaustion = classify_exhaustion(row)
     location = classify_location(row)
 
+    rsi = safe_float(row.get("rsi14"))
+    ema20_gap = safe_float(row.get("ema20Gap"))
+    ema60_gap = safe_float(row.get("ema60Gap"))
+    change5 = safe_float(row.get("change5"))
+    change20 = safe_float(row.get("change20"))
+    volume_ratio = safe_float(row.get("volumeRatio20"), 1)
+    close_position = safe_float(row.get("closePosition"), 0.5)
+    distance_from_high20 = safe_float(row.get("distanceFromHigh20"))
+    distance_from_low20 = safe_float(row.get("distanceFromLow20"))
+
     if exhaustion == "TERMINAL_RISK":
         return "TERMINAL_RISK"
 
@@ -137,8 +147,37 @@ def build_continuation_state(row):
     if trend == "PULLBACK_IN_UPTREND":
         return "PAUSE_OR_PULLBACK"
 
+    # =========================
+    # WEAK_OR_DOWN 세분화
+    # 기존에는 전부 DETERIORATING으로 묶어서
+    # healthy reset / soft pullback / real breakdown이 섞였다.
+    # =========================
+
     if trend == "WEAK_OR_DOWN":
-        return "DETERIORATING"
+        # 진짜 붕괴:
+        # 20일 고점에서 많이 밀리고, 단기/중기 수익률도 약하며,
+        # 종가 위치도 낮은 상태
+        if (
+            distance_from_high20 <= -15
+            and change20 <= -8
+            and change5 <= -3
+            and close_position <= 0.35
+        ):
+            return "REAL_BREAKDOWN"
+
+        # 패닉성 매도:
+        # 거래량이 터졌는데 종가 위치가 낮고 단기 낙폭이 큼
+        if volume_ratio >= 1.8 and close_position <= 0.3 and change5 <= -5:
+            return "PANIC_SELLING"
+
+        # 건강한 리셋:
+        # 중기 추세 훼손은 크지 않고, 고점에서 식었지만 저점권 붕괴는 아님
+        if change20 >= -5 and distance_from_low20 >= 8 and rsi >= 40:
+            return "HEALTHY_RESET"
+
+        # 약한 조정:
+        # 완전 붕괴는 아니지만 아직 추세 회복은 안 된 상태
+        return "SOFT_PULLBACK"
 
     return "NEUTRAL"
 

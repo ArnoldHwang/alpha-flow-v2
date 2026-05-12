@@ -113,8 +113,25 @@ def classify_hierarchy_base(monthly, weekly, daily):
     ):
         return "CONSTRUCTIVE_PAUSE_STRUCTURE"
 
-    if weekly_state == "DETERIORATING" or daily_state == "DETERIORATING":
-        return "DETERIORATING_STRUCTURE"
+    # 핵심 수정:
+    # 기존에는 weekly 또는 daily가 DETERIORATING이면 전부 DETERIORATING_STRUCTURE로 묶였다.
+    # 이제는 deterioration을 성격별로 분리한다.
+
+    if weekly_state == "DETERIORATING" and daily_state in [
+        "HEALTHY_CONTINUATION",
+        "RE_ACCELERATING_CONTINUATION",
+        "HEALTHY_PULLBACK",
+    ]:
+        return "FAILED_RECOVERY_STRUCTURE"
+
+    if weekly_state == "DETERIORATING" and daily_state == "DETERIORATING":
+        return "CONTROLLED_DOWNTREND_STRUCTURE"
+
+    if daily_state == "DETERIORATING":
+        return "DAILY_BREAKDOWN_STRUCTURE"
+
+    if weekly_state == "DETERIORATING":
+        return "WEEKLY_DETERIORATION_STRUCTURE"
 
     if monthly_state == "LATE_STAGE_CONTINUATION" and daily_state in [
         "RE_ACCELERATING_CONTINUATION",
@@ -181,6 +198,18 @@ def build_survivability_bias(final_state):
         return "TACTICAL_ONLY"
 
     if final_state.startswith("AGING_CONTINUATION_STRUCTURE"):
+        return "CAUTION"
+
+    if final_state.startswith("FAILED_RECOVERY_STRUCTURE"):
+        return "AVOID"
+
+    if final_state.startswith("DAILY_BREAKDOWN_STRUCTURE"):
+        return "AVOID"
+
+    if final_state.startswith("CONTROLLED_DOWNTREND_STRUCTURE"):
+        return "CAUTION"
+
+    if final_state.startswith("WEEKLY_DETERIORATION_STRUCTURE"):
         return "CAUTION"
 
     if final_state.startswith("DETERIORATING_STRUCTURE"):
