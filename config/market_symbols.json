@@ -1,0 +1,44 @@
+[
+  {
+    "symbol": "QQQ",
+    "assetType": "etf",
+    "role": "growth_market",
+    "themes": ["growth", "nasdaq"]
+  },
+  {
+    "symbol": "SMH",
+    "assetType": "etf",
+    "role": "semiconductor_market",
+    "themes": ["AI", "semiconductor"]
+  },
+  {
+    "symbol": "^VIX",
+    "assetType": "macro",
+    "role": "volatility_risk"
+  },
+  {
+    "symbol": "^TNX",
+    "assetType": "macro",
+    "role": "rates_risk"
+  },
+  {
+    "symbol": "BTC-USD",
+    "assetType": "macro",
+    "role": "risk_on_liquidity"
+  },
+  {
+    "symbol": "CL=F",
+    "assetType": "macro",
+    "role": "oil_inflation"
+  },
+  {
+    "symbol": "GC=F",
+    "assetType": "macro",
+    "role": "safe_haven"
+  },
+  {
+    "symbol": "DX-Y.NYB",
+    "assetType": "macro",
+    "role": "dollar_liquidity"
+  }
+]

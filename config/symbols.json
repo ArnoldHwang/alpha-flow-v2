@@ -1,0 +1,42 @@
+[
+  {
+    "symbol": "NVDA",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["AI", "GPU", "datacenter"],
+    "betaType": "mega_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "AMD",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["AI", "GPU"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  },
+  {
+    "symbol": "AVGO",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["AI", "networking"],
+    "betaType": "mega_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "TSM",
+    "assetType": "stock",
+    "sector": "semiconductor",
+    "themes": ["AI", "foundry"],
+    "betaType": "quality_growth",
+    "marketCapGroup": "mega"
+  },
+  {
+    "symbol": "PLTR",
+    "assetType": "stock",
+    "sector": "software",
+    "themes": ["AI", "defense", "data"],
+    "betaType": "high_beta_growth",
+    "marketCapGroup": "large"
+  }
+]
