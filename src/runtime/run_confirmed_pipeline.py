@@ -67,6 +67,11 @@ STEPS = [
         "cmd": [sys.executable, "src/live/live_price_feed.py"],
         "required": True,
     },
+    {
+        "name": "BUILD LIVE + CONFIRMED MERGE",
+        "cmd": [sys.executable, "src/live/build_live_confirmed_merge_engine.py"],
+        "required": True,
+    },
 ]
 
 
@@ -158,6 +163,7 @@ def main() -> None:
     print("- data/survivability/_survivability_summary.json")
     print("- data/survivability_profiles/_latest_timeframe_profiles.json")
     print("- data/live_states/_live_state_summary.json")
+    print("- data/live_states/_live_confirmed_merge_summary.json")
     print("- results/research/transition_expectancy_all.csv")
     print("- results/research/state_transition_matrix_all.csv")
 

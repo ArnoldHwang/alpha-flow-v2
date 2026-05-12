@@ -832,14 +832,6 @@
     "marketCapGroup": "large"
   },
   {
-    "symbol": "CYBR",
-    "assetType": "stock",
-    "sector": "software",
-    "themes": ["cybersecurity", "identity"],
-    "betaType": "high_beta_growth",
-    "marketCapGroup": "mid"
-  },
-  {
     "symbol": "DUOL",
     "assetType": "stock",
     "sector": "internet",
