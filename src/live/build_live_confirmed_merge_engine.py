@@ -9,6 +9,10 @@ ROOT = Path(__file__).resolve().parents[2]
 SURVIVABILITY_PATH = (
     ROOT / "data" / "survivability_profiles" / "_latest_timeframe_profiles.json"
 )
+
+# V2 survivability engine output
+SURVIVABILITY_DIR = ROOT / "data" / "survivability"
+
 LIVE_STATE_PATH = ROOT / "data" / "live_states" / "_live_state_summary.json"
 LIVE_QUOTES_PATH = ROOT / "data" / "live_feed" / "live_quotes.json"
 
@@ -36,18 +40,28 @@ def safe_float(value, default=0.0):
 def safe_str(value, default="UNKNOWN"):
     if value is None:
         return default
-    return str(value)
+
+    text = str(value).strip()
+
+    if text == "" or text.lower() == "nan":
+        return default
+
+    return text
 
 
 def normalize_items(data):
     if isinstance(data, list):
         result = {}
+
         for item in data:
             if not isinstance(item, dict):
                 continue
+
             symbol = item.get("symbol")
+
             if symbol:
-                result[symbol] = item
+                result[str(symbol)] = item
+
         return result
 
     if isinstance(data, dict):
@@ -58,20 +72,63 @@ def normalize_items(data):
             return normalize_items(data["symbols"])
 
         result = {}
+
         for key, value in data.items():
             if isinstance(value, dict):
                 item = dict(value)
                 item.setdefault("symbol", key)
-                result[key] = item
+                result[str(key)] = item
+
         return result
 
     return {}
 
 
+def load_latest_survivability_records():
+    """
+    data/survivability/{SYMBOL}.json 최신 row 로드.
+
+    역할:
+    survivability_profiles는 timeframe profile 중심이고,
+    V2에서 새로 만든 riskProfile / expectancyProfile / continuationProfile은
+    data/survivability 개별 심볼 파일에 저장된다.
+    """
+    result = {}
+
+    if not SURVIVABILITY_DIR.exists():
+        print(f"⚠️ missing survivability dir: {SURVIVABILITY_DIR}")
+        return result
+
+    for path in sorted(SURVIVABILITY_DIR.glob("*.json")):
+        if path.name.startswith("_"):
+            continue
+
+        records = load_json(path, [])
+
+        if not isinstance(records, list) or not records:
+            continue
+
+        latest = records[-1]
+
+        if not isinstance(latest, dict):
+            continue
+
+        symbol = latest.get("symbol") or path.stem
+
+        if symbol:
+            result[str(symbol)] = latest
+
+    return result
+
+
 def get_any(row, keys, default=None):
+    if not isinstance(row, dict):
+        return default
+
     for key in keys:
         if key in row and row.get(key) is not None:
             return row.get(key)
+
     return default
 
 
@@ -108,6 +165,11 @@ def score_trajectory(trajectory):
 
 
 def classify_live_pressure(live_state, quote):
+    """
+    장중에는 Alpaca/Yahoo quote 기반 live pressure 반영.
+    장외/quote 없음이면 liveMove는 0 근처로 남고,
+    confirmed + survivability 중심으로 판단된다.
+    """
     live_move = safe_float(
         get_any(
             quote,
@@ -204,6 +266,9 @@ def classify_merged_state(row):
 
     merged_score = row["mergedContinuationScore"]
 
+    continuation_profile = safe_str(row.get("continuationProfile"), "UNKNOWN")
+    risk_profile = safe_str(row.get("riskProfile"), "UNKNOWN")
+
     good_survivability = survivability_bias in {
         "HIGH",
         "GOOD",
@@ -233,7 +298,19 @@ def classify_merged_state(row):
         "VOLATILE_CHOP",
     }
 
+    parabolic_alive = continuation_profile == "TACTICAL_PARABOLIC_ALIVE"
+    recovery_alive = continuation_profile == "RECOVERY_REACCELERATION_ALIVE"
+    continuation_alive = continuation_profile == "CONTINUATION_STILL_ALIVE"
+
+    structural_breakdown_risk = risk_profile in {
+        "EXTREME_FAILURE_RISK",
+        "STRUCTURAL_BREAKDOWN_RISK",
+    }
+
     if failure_pressure >= 70 and live_move <= -2:
+        return "LIVE_BREAKDOWN_CONFIRMING"
+
+    if structural_breakdown_risk and failure_pressure >= 55:
         return "LIVE_BREAKDOWN_CONFIRMING"
 
     if recovery_like and live_move <= -3:
@@ -252,6 +329,15 @@ def classify_merged_state(row):
 
     if good_survivability and breakout_pressure >= 35 and live_move >= 2:
         return "LIVE_BREAKOUT_CONFIRMING"
+
+    if recovery_alive and merged_score >= 45 and failure_pressure < 55:
+        return "LIVE_RECOVERY_WATCHLIST"
+
+    if parabolic_alive and merged_score >= 45 and failure_pressure < 60:
+        return "LIVE_TACTICAL_PARABOLIC_WATCH"
+
+    if continuation_alive and stable_like and failure_pressure < 50:
+        return "LIVE_CONTINUATION_HOLDING"
 
     if recovery_like and merged_score >= 45 and failure_pressure < 18:
         return "LIVE_RECOVERY_CONFIRMING"
@@ -300,6 +386,7 @@ def classify_live_decision_group(live_merged_state):
         "LIVE_RECOVERY_EXTENSION_WATCH",
         "LIVE_RECOVERY_CONFIRMING",
         "LIVE_CONTINUATION_HOLDING",
+        "LIVE_TACTICAL_PARABOLIC_WATCH",
     }:
         return "ACTION_WATCH"
 
@@ -324,12 +411,12 @@ def classify_live_decision_group(live_merged_state):
     return "ACTION_NEUTRAL"
 
 
-def build_merge_row(symbol, profile, live_state, quote):
+def build_merge_row(symbol, profile, survivability_row, live_state, quote):
     survivability_bias = safe_str(
         get_any(
             profile,
             ["survivabilityBias", "finalSurvivabilityBias", "bias"],
-            "NEUTRAL",
+            get_any(survivability_row, ["survivabilityBias"], "NEUTRAL"),
         )
     )
 
@@ -337,7 +424,7 @@ def build_merge_row(symbol, profile, live_state, quote):
         get_any(
             profile,
             ["finalHierarchyState", "hierarchyState", "state"],
-            "UNKNOWN",
+            get_any(survivability_row, ["finalHierarchyState"], "UNKNOWN"),
         )
     )
 
@@ -346,7 +433,13 @@ def build_merge_row(symbol, profile, live_state, quote):
             profile,
             ["trajectoryState", "trajectoryType", "stateTrajectory"],
             get_any(
-                live_state, ["trajectoryState", "trajectoryType"], "NEUTRAL_TRAJECTORY"
+                survivability_row,
+                ["trajectoryState", "trajectoryType"],
+                get_any(
+                    live_state,
+                    ["trajectoryState", "trajectoryType"],
+                    "NEUTRAL_TRAJECTORY",
+                ),
             ),
         )
     )
@@ -360,8 +453,44 @@ def build_merge_row(symbol, profile, live_state, quote):
                 "finalScore",
                 "score",
             ],
+            get_any(survivability_row, ["continuationSurvivabilityScore"], 0),
+        )
+    )
+
+    continuation_survivability_score = safe_float(
+        get_any(
+            survivability_row,
+            ["continuationSurvivabilityScore"],
+            continuation_score,
+        )
+    )
+
+    continuation_failure_risk = safe_float(
+        get_any(
+            survivability_row,
+            ["continuationFailureRisk"],
             0,
         )
+    )
+
+    risk_profile = safe_str(
+        get_any(survivability_row, ["riskProfile"], None),
+        None,
+    )
+
+    expectancy_profile = safe_str(
+        get_any(survivability_row, ["expectancyProfile"], None),
+        None,
+    )
+
+    continuation_profile = safe_str(
+        get_any(survivability_row, ["continuationProfile"], None),
+        None,
+    )
+
+    survivability_interpretation = safe_str(
+        get_any(survivability_row, ["survivabilityInterpretation"], None),
+        None,
     )
 
     pressure = classify_live_pressure(live_state, quote)
@@ -385,6 +514,15 @@ def build_merge_row(symbol, profile, live_state, quote):
         "survivabilityBias": survivability_bias,
         "trajectoryState": trajectory_state,
         "confirmedSurvivabilityScore": round(continuation_score, 4),
+        "continuationSurvivabilityScore": round(
+            continuation_survivability_score,
+            4,
+        ),
+        "continuationFailureRisk": round(continuation_failure_risk, 4),
+        "riskProfile": risk_profile,
+        "expectancyProfile": expectancy_profile,
+        "continuationProfile": continuation_profile,
+        "survivabilityInterpretation": survivability_interpretation,
         "survivabilityBiasScore": round(survivability_score, 4),
         "trajectoryScore": round(trajectory_score, 4),
         **pressure,
@@ -401,17 +539,25 @@ def summarize(rows):
     state_counts = {}
     decision_group_counts = {}
     trajectory_counts = {}
+    continuation_profile_counts = {}
+    risk_profile_counts = {}
 
     for row in rows:
         state = row.get("liveMergedState", "UNKNOWN")
         decision_group = row.get("liveDecisionGroup", "UNKNOWN")
         trajectory = row.get("trajectoryState", "UNKNOWN")
+        continuation_profile = row.get("continuationProfile", "UNKNOWN")
+        risk_profile = row.get("riskProfile", "UNKNOWN")
 
         state_counts[state] = state_counts.get(state, 0) + 1
         decision_group_counts[decision_group] = (
             decision_group_counts.get(decision_group, 0) + 1
         )
         trajectory_counts[trajectory] = trajectory_counts.get(trajectory, 0) + 1
+        continuation_profile_counts[continuation_profile] = (
+            continuation_profile_counts.get(continuation_profile, 0) + 1
+        )
+        risk_profile_counts[risk_profile] = risk_profile_counts.get(risk_profile, 0) + 1
 
     top_candidates = [
         row
@@ -425,6 +571,7 @@ def summarize(rows):
             "LIVE_RECOVERY_UNDER_PRESSURE",
             "LIVE_RECOVERY_WATCHLIST",
             "LIVE_RECOVERY_EXTENSION_WATCH",
+            "LIVE_TACTICAL_PARABOLIC_WATCH",
         }
     ]
 
@@ -462,6 +609,14 @@ def summarize(rows):
         "trajectoryCounts": dict(
             sorted(trajectory_counts.items(), key=lambda x: x[1], reverse=True)
         ),
+        "continuationProfileCounts": dict(
+            sorted(
+                continuation_profile_counts.items(), key=lambda x: x[1], reverse=True
+            )
+        ),
+        "riskProfileCounts": dict(
+            sorted(risk_profile_counts.items(), key=lambda x: x[1], reverse=True)
+        ),
         "topLiveContinuationCandidates": top_candidates,
         "topLiveRiskCandidates": risk_candidates,
     }
@@ -473,6 +628,7 @@ def main():
     print("=================================")
 
     profiles_raw = load_json(SURVIVABILITY_PATH, {})
+    survivability_records = load_latest_survivability_records()
     live_states_raw = load_json(LIVE_STATE_PATH, {})
     live_quotes_raw = load_json(LIVE_QUOTES_PATH, {})
 
@@ -481,17 +637,21 @@ def main():
     live_quotes = normalize_items(live_quotes_raw)
 
     symbols = sorted(
-        set(profiles.keys()) | set(live_states.keys()) | set(live_quotes.keys())
+        set(profiles.keys())
+        | set(survivability_records.keys())
+        | set(live_states.keys())
+        | set(live_quotes.keys())
     )
 
     rows = []
 
     for symbol in symbols:
         profile = profiles.get(symbol, {})
+        survivability_row = survivability_records.get(symbol, {})
         live_state = live_states.get(symbol, {})
         quote = live_quotes.get(symbol, {})
 
-        row = build_merge_row(symbol, profile, live_state, quote)
+        row = build_merge_row(symbol, profile, survivability_row, live_state, quote)
         rows.append(row)
 
     rows = sorted(
@@ -506,6 +666,7 @@ def main():
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "sourceFiles": {
             "survivabilityProfiles": str(SURVIVABILITY_PATH),
+            "survivabilityRecords": str(SURVIVABILITY_DIR),
             "liveStates": str(LIVE_STATE_PATH),
             "liveQuotes": str(LIVE_QUOTES_PATH),
         },
@@ -520,6 +681,7 @@ def main():
         json.dump(output, f, ensure_ascii=False, indent=2)
 
     print(f"✅ symbols: {len(rows)}")
+    print(f"✅ survivabilityRecords: {len(survivability_records)}")
     print("")
 
     print("📊 liveDecisionGroup:")
@@ -532,12 +694,25 @@ def main():
         print(f"  {k}: {v}")
 
     print("")
+    print("📊 continuationProfile:")
+    for k, v in summary["continuationProfileCounts"].items():
+        print(f"  {k}: {v}")
+
+    print("")
+    print("📊 riskProfile:")
+    for k, v in summary["riskProfileCounts"].items():
+        print(f"  {k}: {v}")
+
+    print("")
     print("🔥 top live continuation candidates:")
     for row in summary["topLiveContinuationCandidates"][:15]:
         print(
             f"  {row['symbol']} | {row['liveDecisionGroup']} | "
             f"{row['liveMergedState']} | "
             f"score={row['mergedContinuationScore']} | "
+            f"surv={row.get('continuationSurvivabilityScore')} | "
+            f"profile={row.get('continuationProfile')} | "
+            f"risk={row.get('riskProfile')} | "
             f"traj={row['trajectoryState']} | "
             f"bias={row['survivabilityBias']} | "
             f"move={row['liveMove']}"
@@ -550,6 +725,9 @@ def main():
             f"  {row['symbol']} | {row['liveDecisionGroup']} | "
             f"{row['liveMergedState']} | "
             f"score={row['mergedContinuationScore']} | "
+            f"surv={row.get('continuationSurvivabilityScore')} | "
+            f"profile={row.get('continuationProfile')} | "
+            f"risk={row.get('riskProfile')} | "
             f"traj={row['trajectoryState']} | "
             f"bias={row['survivabilityBias']} | "
             f"move={row['liveMove']} | "

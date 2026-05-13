@@ -223,6 +223,16 @@ def compact_item(row):
         "hierarchy": row.get("confirmedHierarchyState"),
         "trajectory": row.get("trajectoryState"),
         "bias": row.get("survivabilityBias"),
+        # V2 survivability interpretation
+        # riskProfile = 위험 성격
+        # expectancyProfile = 어떤 시간축 기대값이 강한가
+        # continuationProfile = continuation이 아직 살아있는지
+        "survivabilityScore": row.get("continuationSurvivabilityScore"),
+        "failureRisk": row.get("continuationFailureRisk"),
+        "riskProfile": row.get("riskProfile"),
+        "expectancyProfile": row.get("expectancyProfile"),
+        "continuationProfile": row.get("continuationProfile"),
+        "survivabilityInterpretation": row.get("survivabilityInterpretation"),
         "move": row.get("liveMove"),
         "breakoutPressure": row.get("breakoutPressure"),
         "failurePressure": row.get("failurePressure"),
@@ -288,8 +298,10 @@ def main():
         print(
             f"  {row['symbol']} | {row['liveMergedState']} | "
             f"score={row['score']} | confirmed={row['confirmedScore']} | "
+            f"surv={row.get('survivabilityScore')} | "
             f"move={row['move']} | fail={row['failurePressure']} | "
-            f"traj={row['trajectory']}"
+            f"traj={row['trajectory']} | "
+            f"profile={row.get('continuationProfile')}"
         )
 
     print("")

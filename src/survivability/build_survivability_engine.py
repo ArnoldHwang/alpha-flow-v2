@@ -390,6 +390,92 @@ def classify_timeframe_expectancy(row: Dict[str, Any]) -> str:
     return "MIXED_TIMEFRAME_EXPECTANCY"
 
 
+def classify_risk_profile(row: Dict[str, Any]) -> str:
+    daily_state = safe_state(row.get("dailyContinuationState"))
+    trajectory = safe_state(row.get("trajectoryState"))
+    hierarchy = safe_state(row.get("finalHierarchyState"))
+    failure_risk = safe_float(row.get("continuationFailureRisk"), 0)
+
+    if failure_risk >= 70:
+        return "EXTREME_FAILURE_RISK"
+
+    if trajectory in ["BREAKDOWN_PERSISTENCE", "VOLATILE_CHOP"]:
+        return "STRUCTURAL_BREAKDOWN_RISK"
+
+    if trajectory == "DISTRIBUTION_TRAJECTORY":
+        return "DISTRIBUTION_RISK"
+
+    if hierarchy == "TERMINAL_STRUCTURE_RISK":
+        return "HIGH_VOLATILITY_EXTENSION_RISK"
+
+    if daily_state == "TERMINAL_RISK":
+        return "LATE_STAGE_REVERSAL_RISK"
+
+    if failure_risk >= 50:
+        return "ELEVATED_RISK"
+
+    return "CONTROLLED_RISK"
+
+
+def classify_expectancy_profile(row: Dict[str, Any]) -> str:
+    avg5 = safe_float(row.get("selectedAvgReturn5d"), 0)
+    avg10 = safe_float(row.get("selectedAvgReturn10d"), 0)
+    avg20 = safe_float(row.get("selectedAvgReturn20d"), 0)
+    avg60 = safe_float(row.get("selectedAvgReturn60d"), 0)
+
+    if avg5 >= 4 and avg10 >= 5:
+        return "SHORT_SWING_BURST"
+
+    if avg10 >= 4 and avg20 >= 6:
+        return "SWING_CONTINUATION"
+
+    if avg20 >= 5 and avg60 >= 10:
+        return "MIDTERM_SURVIVABILITY"
+
+    if avg60 >= 12:
+        return "LONG_DRIFT_CONTINUATION"
+
+    if avg5 < 0 and avg10 < 0 and avg20 < 0:
+        return "NEGATIVE_EXPECTANCY"
+
+    return "MIXED_EXPECTANCY"
+
+
+def classify_continuation_profile(row: Dict[str, Any]) -> str:
+    score = safe_float(row.get("continuationSurvivabilityScore"), 0)
+    failure_risk = safe_float(row.get("continuationFailureRisk"), 0)
+    trajectory = safe_state(row.get("trajectoryState"))
+    hierarchy = safe_state(row.get("finalHierarchyState"))
+
+    if score >= 70 and failure_risk <= 45:
+        return "CONTINUATION_STILL_ALIVE"
+
+    if trajectory == "RECOVERY_TRAJECTORY" and score >= 55:
+        return "RECOVERY_REACCELERATION_ALIVE"
+
+    if trajectory == "ACCELERATING_TRAJECTORY" and score >= 55:
+        return "ACCELERATION_ALIVE"
+
+    if hierarchy == "TERMINAL_STRUCTURE_RISK" and score >= 50:
+        return "TACTICAL_PARABOLIC_ALIVE"
+
+    if failure_risk >= 70:
+        return "CONTINUATION_BREAKING"
+
+    if score < 45:
+        return "LOW_SURVIVABILITY_STRUCTURE"
+
+    return "UNCERTAIN_CONTINUATION"
+
+
+def build_survivability_interpretation(row: Dict[str, Any]) -> str:
+    risk_profile = safe_state(row.get("riskProfile"))
+    expectancy_profile = safe_state(row.get("expectancyProfile"))
+    continuation_profile = safe_state(row.get("continuationProfile"))
+
+    return f"{continuation_profile} | " f"{expectancy_profile} | " f"{risk_profile}"
+
+
 def calc_failure_risk(row: Dict[str, Any]) -> float:
     daily_state = safe_state(row.get("dailyContinuationState"))
     trajectory = safe_state(row.get("trajectoryState"))
@@ -533,7 +619,20 @@ def build_survivability_for_df(
             survivability_score,
             failure_risk,
         )
+
+        row["selectedAvgReturn5d"] = best_exp.get("avgReturn_5d")
+        row["selectedAvgReturn10d"] = best_exp.get("avgReturn_10d")
+        row["selectedAvgReturn20d"] = best_exp.get("avgReturn_20d")
+        row["selectedAvgReturn60d"] = best_exp.get("avgReturn_60d")
+        row["selectedWinRate10d"] = best_exp.get("winRate_10d")
+        row["selectedWinRate20d"] = best_exp.get("winRate_20d")
+
         row["timeframeExpectancyType"] = classify_timeframe_expectancy(best_exp)
+
+        row["riskProfile"] = classify_risk_profile(row)
+        row["expectancyProfile"] = classify_expectancy_profile(row)
+        row["continuationProfile"] = classify_continuation_profile(row)
+        row["survivabilityInterpretation"] = build_survivability_interpretation(row)
 
         row["topNextDailyState5d"] = daily_transition.get("topNextState")
         row["topNextDailyStateProbability5d"] = daily_transition.get(
