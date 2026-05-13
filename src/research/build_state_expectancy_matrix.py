@@ -13,11 +13,11 @@ OUT_DIR = ROOT / "data" / "research"
 OUT_JSON = OUT_DIR / "state_expectancy_matrix.json"
 OUT_CSV = OUT_DIR / "state_expectancy_matrix.csv"
 
-
-HORIZONS = ["3d", "5d", "10d", "20d", "60d"]
+HORIZONS = ["1d", "3d", "5d", "10d", "20d", "30d", "60d"]
 
 MIN_ROWS_STRONG = 300
 MIN_ROWS_OK = 50
+MIN_ROWS_WEAK = 20
 
 
 def safe_float(value, default=0.0):
@@ -30,10 +30,22 @@ def safe_float(value, default=0.0):
 
 
 def safe_str(value, default="UNKNOWN"):
-    if pd.isna(value):
+    try:
+        if pd.isna(value):
+            return default
+        value = str(value).strip()
+        return value if value else default
+    except Exception:
         return default
-    value = str(value).strip()
-    return value if value else default
+
+
+def first_existing(row, names, default="UNKNOWN"):
+    for name in names:
+        if name in row.index:
+            value = safe_str(row.get(name), default=None)
+            if value and value != "UNKNOWN":
+                return value
+    return default
 
 
 def sample_quality(rows):
@@ -41,54 +53,112 @@ def sample_quality(rows):
         return "STRONG_SAMPLE"
     if rows >= MIN_ROWS_OK:
         return "OK_SAMPLE"
+    if rows >= MIN_ROWS_WEAK:
+        return "WEAK_SAMPLE"
     return "LOW_SAMPLE"
 
 
-def horizon_score(row, h):
-    win = safe_float(row.get(f"winRate_{h}", 0))
-    survival = safe_float(row.get(f"survivalRate_{h}", 0))
-    avg_return = safe_float(row.get(f"avgReturn_{h}", 0))
+def confidence_multiplier(rows):
+    if rows >= MIN_ROWS_STRONG:
+        return 1.00
+    if rows >= MIN_ROWS_OK:
+        return 0.85
+    if rows >= MIN_ROWS_WEAK:
+        return 0.65
+    return 0.45
 
-    # rewardRisk는 현재 10d 기준만 있음. 없으면 1.0 처리.
-    rr = safe_float(row.get("rewardRisk_10d", 1.0), 1.0)
 
-    # 핵심:
-    # 단순 win rate가 아니라
-    # 생존율 + 수익률 + 손익비를 같이 본다.
-    return win * 0.35 + survival * 0.30 + avg_return * 1.50 + rr * 5.00
+def get_metric(row, metric, horizon, default=0.0):
+    return safe_float(row.get(f"{metric}_{horizon}", default), default)
+
+
+def get_reward_risk(row, horizon):
+    direct = row.get(f"rewardRisk_{horizon}", None)
+    if direct is not None and not pd.isna(direct):
+        return safe_float(direct, 1.0)
+
+    fallback = row.get("rewardRisk_10d", None)
+    if fallback is not None and not pd.isna(fallback):
+        return safe_float(fallback, 1.0)
+
+    mfe = get_metric(row, "avgMFE", horizon, 0.0)
+    mae = abs(get_metric(row, "avgMAE", horizon, 0.0))
+
+    if mae <= 0:
+        return 1.0
+
+    return round(mfe / mae, 4)
+
+
+def horizon_score(row, horizon):
+    rows = int(safe_float(row.get("rows", 0)))
+
+    win = get_metric(row, "winRate", horizon, 0.0)
+    survival = get_metric(row, "survivalRate", horizon, 0.0)
+    avg_return = get_metric(row, "avgReturn", horizon, 0.0)
+    mfe = get_metric(row, "avgMFE", horizon, 0.0)
+    mae = abs(get_metric(row, "avgMAE", horizon, 0.0))
+    rr = get_reward_risk(row, horizon)
+
+    confidence = confidence_multiplier(rows)
+
+    raw_score = (
+        win * 0.32
+        + survival * 0.25
+        + avg_return * 1.60
+        + mfe * 0.45
+        + rr * 4.50
+        - mae * 0.35
+    )
+
+    return round(raw_score * confidence, 4)
 
 
 def choose_best_horizon(row):
     scored = []
 
-    for h in HORIZONS:
-        score = horizon_score(row, h)
-        scored.append((h, score))
+    for horizon in HORIZONS:
+        has_any = (
+            f"winRate_{horizon}" in row.index
+            or f"avgReturn_{horizon}" in row.index
+            or f"survivalRate_{horizon}" in row.index
+        )
+
+        if not has_any:
+            continue
+
+        scored.append((horizon, horizon_score(row, horizon)))
+
+    if not scored:
+        return "UNKNOWN", 0.0
 
     scored = sorted(scored, key=lambda x: x[1], reverse=True)
-
-    best_horizon, best_score = scored[0]
-
-    return best_horizon, round(best_score, 4)
+    return scored[0][0], round(scored[0][1], 4)
 
 
 def classify_expectancy(row, best_horizon):
     rows = int(safe_float(row.get("rows", 0)))
-    win = safe_float(row.get(f"winRate_{best_horizon}", 0))
-    survival = safe_float(row.get(f"survivalRate_{best_horizon}", 0))
-    avg_return = safe_float(row.get(f"avgReturn_{best_horizon}", 0))
-    rr = safe_float(row.get("rewardRisk_10d", 1.0), 1.0)
 
-    if rows < MIN_ROWS_OK:
+    if rows < MIN_ROWS_WEAK or best_horizon == "UNKNOWN":
         return "LOW_CONFIDENCE"
 
-    if win >= 60 and avg_return >= 8 and survival >= 35:
+    win = get_metric(row, "winRate", best_horizon, 0.0)
+    survival = get_metric(row, "survivalRate", best_horizon, 0.0)
+    avg_return = get_metric(row, "avgReturn", best_horizon, 0.0)
+    rr = get_reward_risk(row, best_horizon)
+
+    if rows < MIN_ROWS_OK:
+        if win >= 58 and avg_return >= 6 and rr >= 1.2:
+            return "PROMISING_BUT_LOW_SAMPLE"
+        return "LOW_CONFIDENCE"
+
+    if win >= 62 and avg_return >= 8 and survival >= 35 and rr >= 1.2:
         return "ELITE_EXPECTANCY"
 
-    if win >= 56 and avg_return >= 5 and survival >= 30:
+    if win >= 58 and avg_return >= 5 and survival >= 30 and rr >= 1.05:
         return "HIGH_EXPECTANCY"
 
-    if win >= 53 and avg_return >= 2 and rr >= 1.1:
+    if win >= 54 and avg_return >= 2 and rr >= 1.0:
         return "GOOD_EXPECTANCY"
 
     if win >= 50 and avg_return >= 0:
@@ -103,28 +173,115 @@ def classify_expectancy(row, best_horizon):
 def classify_operating_mode(row, best_horizon, grade):
     archetype = safe_str(row.get("continuationArchetype"))
     hierarchy = safe_str(row.get("finalHierarchyState"))
+    trajectory = first_existing(
+        row,
+        ["trajectoryType", "trajectoryState", "trajectory"],
+        default="UNKNOWN",
+    )
+    regime = first_existing(
+        row,
+        ["marketRegime", "regimeState", "marketState"],
+        default="UNKNOWN",
+    )
 
-    if grade == "LOW_CONFIDENCE":
+    if grade in ["LOW_CONFIDENCE"]:
         return "RESEARCH_ONLY"
 
-    if "TERMINAL" in hierarchy:
+    if grade == "NEGATIVE_EXPECTANCY":
+        return "AVOID_OR_SHORTLIST_REVIEW"
+
+    if "TERMINAL" in hierarchy or "TERMINAL" in archetype:
         if grade in ["ELITE_EXPECTANCY", "HIGH_EXPECTANCY"]:
             return "TACTICAL_HIGH_RISK_CONTINUATION"
         return "TERMINAL_RISK_AVOID"
 
-    if archetype in ["TACTICAL_PARABOLIC_CONTINUATION", "LATE_STAGE_CONTINUATION"]:
-        return "TACTICAL_MOMENTUM_WINDOW"
+    if "DISTRIBUTION" in trajectory or "DISTRIBUTION" in archetype:
+        if grade in ["ELITE_EXPECTANCY", "HIGH_EXPECTANCY"]:
+            return "TACTICAL_DISTRIBUTION_BOUNCE"
+        return "DISTRIBUTION_RISK_REVIEW"
 
-    if best_horizon in ["3d", "5d", "10d"]:
+    if "RISK_OFF" in regime and grade not in ["ELITE_EXPECTANCY", "HIGH_EXPECTANCY"]:
+        return "REGIME_CONSTRAINED_REVIEW"
+
+    if best_horizon == "1d":
+        return "ONE_DAY_BURST"
+
+    if best_horizon in ["3d", "5d"]:
         return "SHORT_SWING_CONTINUATION"
 
-    if best_horizon == "20d":
-        return "MIDTERM_CONTINUATION"
+    if best_horizon in ["10d", "20d"]:
+        return "SWING_TO_MIDTERM_CONTINUATION"
 
-    if best_horizon == "60d":
+    if best_horizon in ["30d", "60d"]:
         return "LONG_SURVIVABILITY_CONTINUATION"
 
     return "MIXED_CONTINUATION"
+
+
+def build_item(row):
+    archetype = safe_str(row.get("continuationArchetype"))
+    hierarchy = safe_str(row.get("finalHierarchyState"))
+
+    trajectory = first_existing(
+        row,
+        ["trajectoryType", "trajectoryState", "trajectory"],
+        default="UNKNOWN",
+    )
+
+    regime = first_existing(
+        row,
+        ["marketRegime", "regimeState", "marketState"],
+        default="UNKNOWN",
+    )
+
+    survivability = first_existing(
+        row,
+        ["survivabilityBias", "survivabilityState", "survivability"],
+        default="UNKNOWN",
+    )
+
+    rows = int(safe_float(row.get("rows", 0)))
+
+    best_horizon, best_score = choose_best_horizon(row)
+    grade = classify_expectancy(row, best_horizon)
+    mode = classify_operating_mode(row, best_horizon, grade)
+
+    item = {
+        "continuationArchetype": archetype,
+        "finalHierarchyState": hierarchy,
+        "trajectoryType": trajectory,
+        "marketRegime": regime,
+        "survivabilityBias": survivability,
+        "rows": rows,
+        "sampleQuality": sample_quality(rows),
+        "confidenceMultiplier": confidence_multiplier(rows),
+        "bestHorizon": best_horizon,
+        "expectancyScore": best_score,
+        "expectancyGrade": grade,
+        "operatingMode": mode,
+    }
+
+    for horizon in HORIZONS:
+        item[f"winRate_{horizon}"] = get_metric(row, "winRate", horizon, 0.0)
+        item[f"survivalRate_{horizon}"] = get_metric(row, "survivalRate", horizon, 0.0)
+        item[f"avgReturn_{horizon}"] = get_metric(row, "avgReturn", horizon, 0.0)
+        item[f"avgMFE_{horizon}"] = get_metric(row, "avgMFE", horizon, 0.0)
+        item[f"avgMAE_{horizon}"] = get_metric(row, "avgMAE", horizon, 0.0)
+        item[f"rewardRisk_{horizon}"] = get_reward_risk(row, horizon)
+        item[f"expectancyScore_{horizon}"] = horizon_score(row, horizon)
+
+    return item
+
+
+def nested_set(matrix, keys, item):
+    current = matrix
+
+    for key in keys[:-1]:
+        if key not in current:
+            current[key] = {}
+        current = current[key]
+
+    current[keys[-1]] = item
 
 
 def build_matrix():
@@ -147,51 +304,39 @@ def build_matrix():
     matrix = {}
 
     for _, row in df.iterrows():
-        archetype = safe_str(row.get("continuationArchetype"))
-        hierarchy = safe_str(row.get("finalHierarchyState"))
-        rows = int(safe_float(row.get("rows", 0)))
-
-        best_horizon, best_score = choose_best_horizon(row)
-        grade = classify_expectancy(row, best_horizon)
-        mode = classify_operating_mode(row, best_horizon, grade)
-
-        item = {
-            "continuationArchetype": archetype,
-            "finalHierarchyState": hierarchy,
-            "rows": rows,
-            "sampleQuality": sample_quality(rows),
-            "bestHorizon": best_horizon,
-            "expectancyScore": best_score,
-            "expectancyGrade": grade,
-            "operatingMode": mode,
-            "winRate_3d": safe_float(row.get("winRate_3d")),
-            "winRate_5d": safe_float(row.get("winRate_5d")),
-            "winRate_10d": safe_float(row.get("winRate_10d")),
-            "winRate_20d": safe_float(row.get("winRate_20d")),
-            "winRate_60d": safe_float(row.get("winRate_60d")),
-            "survivalRate_10d": safe_float(row.get("survivalRate_10d")),
-            "survivalRate_20d": safe_float(row.get("survivalRate_20d")),
-            "survivalRate_60d": safe_float(row.get("survivalRate_60d")),
-            "avgReturn_5d": safe_float(row.get("avgReturn_5d")),
-            "avgReturn_10d": safe_float(row.get("avgReturn_10d")),
-            "avgReturn_20d": safe_float(row.get("avgReturn_20d")),
-            "avgReturn_60d": safe_float(row.get("avgReturn_60d")),
-            "avgMFE_10d": safe_float(row.get("avgMFE_10d")),
-            "avgMAE_10d": safe_float(row.get("avgMAE_10d")),
-            "rewardRisk_10d": safe_float(row.get("rewardRisk_10d")),
-        }
+        item = build_item(row)
 
         output_rows.append(item)
 
-        if archetype not in matrix:
-            matrix[archetype] = {}
-
-        matrix[archetype][hierarchy] = item
+        nested_set(
+            matrix,
+            [
+                item["continuationArchetype"],
+                item["finalHierarchyState"],
+                item["trajectoryType"],
+                item["marketRegime"],
+                item["survivabilityBias"],
+            ],
+            item,
+        )
 
     out_df = pd.DataFrame(output_rows)
 
+    grade_order = {
+        "ELITE_EXPECTANCY": 1,
+        "HIGH_EXPECTANCY": 2,
+        "GOOD_EXPECTANCY": 3,
+        "MILD_EXPECTANCY": 4,
+        "PROMISING_BUT_LOW_SAMPLE": 5,
+        "MIXED_EXPECTANCY": 6,
+        "NEGATIVE_EXPECTANCY": 7,
+        "LOW_CONFIDENCE": 8,
+    }
+
+    out_df["gradeRank"] = out_df["expectancyGrade"].map(grade_order).fillna(99)
+
     out_df = out_df.sort_values(
-        by=["expectancyGrade", "expectancyScore", "rows"],
+        by=["gradeRank", "expectancyScore", "rows"],
         ascending=[True, False, False],
     )
 
@@ -206,28 +351,48 @@ def build_matrix():
     print("🧠 BUILD STATE EXPECTANCY MATRIX")
     print("=================================")
     print(f"input rows: {len(df):,}")
-    print(f"matrix archetypes: {len(matrix):,}")
+    print(f"output rows: {len(out_df):,}")
+    print(f"matrix archetypes: {out_df['continuationArchetype'].nunique():,}")
     print("")
+
     print("TOP EXPECTANCY:")
-    print(
-        out_df[
-            [
-                "continuationArchetype",
-                "finalHierarchyState",
-                "rows",
-                "sampleQuality",
-                "bestHorizon",
-                "expectancyScore",
-                "expectancyGrade",
-                "operatingMode",
-                "winRate_60d",
-                "avgReturn_60d",
-                "survivalRate_60d",
-            ]
-        ]
-        .head(30)
-        .to_string(index=False)
-    )
+    show_cols = [
+        "continuationArchetype",
+        "finalHierarchyState",
+        "trajectoryType",
+        "marketRegime",
+        "survivabilityBias",
+        "rows",
+        "sampleQuality",
+        "bestHorizon",
+        "expectancyScore",
+        "expectancyGrade",
+        "operatingMode",
+        "winRate_1d",
+        "winRate_3d",
+        "winRate_5d",
+        "winRate_10d",
+        "winRate_20d",
+        "winRate_30d",
+        "winRate_60d",
+        "avgReturn_10d",
+        "avgReturn_20d",
+        "avgReturn_30d",
+        "avgReturn_60d",
+        "rewardRisk_10d",
+    ]
+
+    existing_show_cols = [c for c in show_cols if c in out_df.columns]
+
+    print(out_df[existing_show_cols].head(30).to_string(index=False))
+
+    print("")
+    print("EXPECTANCY GRADE DISTRIBUTION:")
+    print(out_df["expectancyGrade"].value_counts(dropna=False).to_string())
+
+    print("")
+    print("BEST HORIZON DISTRIBUTION:")
+    print(out_df["bestHorizon"].value_counts(dropna=False).to_string())
 
     print("")
     print("✅ SAVED")

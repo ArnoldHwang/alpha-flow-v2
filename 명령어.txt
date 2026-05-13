@@ -1,86 +1,351 @@
-ALPHA-FLOW-V2
-DAILY RUNTIME GUIDE
+ALPHA-FLOW-V2 이어가기
 
-==================================================
-1. 장마감 후 (하루 1번)
-==================================================
+현재 프로젝트는:
 
-실행:
+STATE-DRIVEN MULTI-TIMEFRAME CONTINUATION OPERATING SYSTEM 방향이다.
 
-python src/runtime/run_confirmed_pipeline.py
+핵심 목표는:
+“좋은 종목 찾기”가 아니라
 
-역할:
+“현재 continuation lifecycle이 앞으로도 살아남을 가능성이 높은가?”
+그리고
+“어떤 timeframe expectancy를 가지는가?”
+를 연구하는 것이다.
 
-raw scanner
+우리는 단순 RSI/MACD 조건검색기를 만드는 게 아니다.
+
+핵심 철학:
+
+* continuation survivability
+* trajectory lifecycle
+* state hierarchy
+* expectancy calibration
+* market-aware continuation
+* confirmed/live separation
+* walk-forward / replay
+* lookahead leakage 방지
+
+---
+
+# 현재 핵심 구조
+
+---
+
+CONFIRMED WORLD:
+
+raw
+→ snapshots
 → timeframe states
-→ hierarchy
+→ hierarchy states
 → trajectory
+→ transition paths
 → survivability
-→ expectancy update
+→ continuation archetype
+→ expectancy matrix
 
-목적:
+LIVE WORLD:
 
-확정봉 기반 전체 상태 업데이트
-
-==================================================
-2. 장중 실시간 모니터링
-==================================================
-
-실행:
-
-python src/runtime/run_live_runtime.py
-
-기본 주기:
-
-3분 (180초)
-
-역할:
-
-live quotes
-→ live merge
+live price
+→ live pressure
+→ confirmed merge
 → decision board
-→ live dashboard
+→ html dashboard
 
-브라우저:
+---
 
-http://localhost:8080/live_decision_board.html
+# 현재 핵심 아키텍처
 
-목적:
+---
 
-실시간 continuation pressure 감시
+confirmed runtime:
 
-==================================================
-3. 리서치 / expectancy 분석
-==================================================
-
-실행:
-
-python src/runtime/run_research_pipeline.py
+src/runtime/run_confirmed_pipeline.py
 
 역할:
+확정봉 기준 continuation operating world 생성.
 
-trajectory expectancy
-transition expectancy
-survivability analysis
-distribution analysis
+현재 confirmed pipeline 순서:
 
-목적:
+COLLECT RAW
+→ BUILD SNAPSHOTS
+→ BUILD STATES
+→ BUILD HIERARCHY
+→ BUILD TRAJECTORY
+→ BUILD TRANSITIONS
+→ BUILD SURVIVABILITY
+→ BUILD ARCHETYPE
+→ BUILD EXPECTANCY MATRIX
 
-어떤 상태가
-어떤 timeframe expectancy를 가지는지 연구
+중요:
+예전에 BUILD SNAPSHOTS step 누락으로 인해:
 
-==================================================
-핵심 철학
-==================================================
+raw/daily 는 최신인데
+snapshots/states/hierarchy/survivability 가
+2026-04-29 에 멈춰있던 문제 발견 및 수정 완료.
 
-CONFIRMED
-=
-현재 구조
+즉:
+confirmed pipeline architecture stabilization 완료.
 
-LIVE
-=
-지금 살아나는가 / 무너지는가
+---
 
-RESEARCH
-=
-실제로 얼마나 오래 살아남는가
+# LIVE RUNTIME
+
+---
+
+live runtime:
+
+src/runtime/run_live_runtime.py
+
+현재 LIVE_STEPS:
+
+LIVE PRICE FEED
+→ LIVE CONFIRMED MERGE
+→ LIVE PRESSURE MEMORY
+→ LIVE DECISION BOARD
+→ LIVE HTML DASHBOARD
+
+핵심 철학:
+
+confirmed continuation structure
++
+today live pressure
++
+session awareness
++
+quote freshness
++
+expectancy overlay
+
+를 동시에 보는 구조.
+
+---
+
+# 현재 continuation 철학
+
+---
+
+좋은 종목 찾기가 아니라:
+
+“아직 continuation이 안 끝난 상태”
+를 찾는 것.
+
+특히 중요한 개념:
+
+1.
+
+Hierarchy
+(monthly → weekly → daily 의미 계층)
+
+2.
+
+Trajectory
+(어떤 흐름으로 여기까지 왔는가)
+
+3.
+
+Survivability
+(continuation 생존 가능성)
+
+4.
+
+Expectancy
+(어떤 horizon에서 강한가)
+
+5.
+
+Archetype
+(continuation subtype taxonomy)
+
+---
+
+# 현재 archetype 예시
+
+---
+
+* RECOVERY_REACCELERATION
+* STRUCTURAL_CONTINUATION
+* RECOVERY_WATCH
+* DISTRIBUTION_PRESSURE
+* DISTRIBUTION_BREAKDOWN
+* SLOW_DRIFT_CONTINUATION
+
+현재 핵심 방향:
+
+GOOD/BAD 분류가 아니라
+
+“어떤 continuation subtype인가?”
+를 연구하는 continuation taxonomy 방향.
+
+---
+
+# 현재 live operating layer
+
+---
+
+현재 live score 구조:
+
+confirmedScore
++
+today live overlay adjustment
+
+형태.
+
+즉:
+좋은 구조인데 오늘 약하면 감점,
+구조는 애매하지만 장중 재가속 강하면 가산.
+
+현재 LIVE PRESSURE MEMORY 개념 도입 완료.
+
+향후 방향:
+
+today overlay 수준에서 끝나는 게 아니라
+
+* live persistence
+* multi-day pressure memory
+* relative strength persistence
+* intraday continuation persistence
+
+방향으로 진화 예정.
+
+---
+
+# 현재 중요한 발견
+
+---
+
+trajectory가 매우 중요할 가능성 발견.
+
+즉:
+
+“현재 상태”
+보다
+
+“어떤 흐름으로 여기 왔는가”
+가 continuation survivability에 더 중요할 수 있음.
+
+특히:
+
+RECOVERY_TRAJECTORY
+DISTRIBUTION_TRAJECTORY
+
+의 expectancy 차이를 연구 중.
+
+---
+
+# 현재 핵심 진화 방향
+
+---
+
+1.
+
+STATE EXPECTANCY CALIBRATION
+
+즉:
+각 state/archetype이
+실제로 어느 horizon에서 expectancy가 강한지 검증.
+
+핵심:
+상태 이름이 아니라
+실제 expectancy 기반 calibration.
+
+2.
+
+REGIME-AWARE EXPECTANCY
+
+즉:
+
+market regime
++
+continuation archetype
++
+hierarchy state
+
+조합 expectancy 연구.
+
+예:
+AI_LEADERSHIP + RECOVERY_REACCELERATION
+vs
+RISK_OFF + RECOVERY_REACCELERATION
+
+expectancy 차이 연구 예정.
+
+3.
+
+2026 WALK-FORWARD REPLAY
+
+즉:
+2015~2025 데이터만 사용 후
+2026을 미래를 모르는 상태로 하루씩 replay 예정.
+
+---
+
+# 현재 실제 폴더 구조
+
+---
+
+src/
+├─ scanner/
+├─ snapshots/
+├─ states/
+├─ hierarchy/
+├─ trajectory/
+├─ survivability/
+├─ live/
+├─ runtime/
+└─ research/
+
+---
+
+# 최근 핵심 커밋 흐름
+
+---
+
+49999e7
+transition path + transition matrix 연구
+
+c7b4260
+survivability engine 추가
+
+6a96b7d
+trajectory-aware live runtime 시작
+
+8a7ed4a
+runtime orchestration 구조
+
+d3a951f
+trajectory lifecycle expectancy 강화
+
+8522a16
+continuation archetype + expectancy layer 추가
+
+f26a13d
+expectancy operating console 진화
+
+02dc5da
+confirmed/live runtime stabilization + snapshot pipeline fix
+
+---
+
+# 매우 중요한 원칙
+
+---
+
+우리는:
+“좋은 종목 추천기”
+를 만드는 게 아니다.
+
+진짜 목표는:
+
+“현재 continuation lifecycle이
+앞으로도 살아남을 가능성이 높은가?”
+
+를:
+
+* hierarchy
+* trajectory
+* survivability
+* expectancy
+* market regime
+* live pressure
+
+관점으로 연구하는 것이다.

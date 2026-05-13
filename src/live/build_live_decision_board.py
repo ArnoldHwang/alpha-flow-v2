@@ -53,7 +53,7 @@ def calc_live_adjusted_score(row):
     장중 deterioration만 적당히 반영.
     """
 
-    confirmed_score = safe_float(row.get("mergedContinuationScore"))
+    confirmed_score = safe_float(row.get("confirmedContinuationScore"))
 
     live_move = safe_float(row.get("liveMove"))
     breakout = safe_float(row.get("breakoutPressure"))
@@ -209,9 +209,12 @@ def sort_group_items(items, group):
 
 
 def compact_item(row):
-    confirmed_score = row.get("mergedContinuationScore")
+    confirmed_score = row.get("confirmedContinuationScore")
     live_adjusted_score = calc_live_adjusted_score(row)
-
+    live_adjustment_score = round(
+        live_adjusted_score - safe_float(confirmed_score),
+        2,
+    )
     return {
         "symbol": row.get("symbol"),
         "decisionGroup": row.get("liveDecisionGroup"),
@@ -255,6 +258,28 @@ def compact_item(row):
         "historicalSurvivalRate60d": row.get("historicalSurvivalRate60d"),
         "historicalRewardRisk10d": row.get("historicalRewardRisk10d"),
         "expectancyMatched": row.get("expectancyMatched"),
+        # Swing expectancy curve overlay
+        # expectancyCurveCluster = 기대값 곡선 유형
+        # preferredAction = 이 상태를 실전에서 어떻게 다룰지
+        # swingGrade = 3d~20d 스윙 기대값 등급
+        # bestSwingWindow = 가장 강한 스윙 시간축
+        "expectancyCurveCluster": row.get("expectancyCurveCluster"),
+        "preferredAction": row.get("preferredAction"),
+        "swingGrade": row.get("swingGrade"),
+        "bestSwingWindow": row.get("bestSwingWindow"),
+        "swingScore": row.get("swingScore_3d_20d"),
+        "burstScore": row.get("burstScore_1d_5d"),
+        "longSurvivabilityScore": row.get("longSurvivabilityScore_30d_60d"),
+        "collapseRisk": row.get("collapseRisk_20d_60d"),
+        "curveStrengthScore": row.get("curveStrengthScore"),
+        "curveMatched": row.get("curveMatched"),
+        # High position quality overlay
+        # 좋은 고점 / 위험한 고점 판단
+        "highPositionQuality": row.get("highPositionQuality"),
+        "positionInterpretation": row.get("positionInterpretation"),
+        "positionActionGuide": row.get("positionActionGuide"),
+        "highPositionMatched": row.get("highPositionMatched"),
+        "liveAdjustmentScore": live_adjustment_score,
     }
 
 
@@ -319,10 +344,12 @@ def main():
         print(
             f"  {row['symbol']} | {row['liveMergedState']} | "
             f"score={row['score']} | confirmed={row['confirmedScore']} | "
-            f"surv={row.get('survivabilityScore')} | "
             f"move={row['move']} | fail={row['failurePressure']} | "
             f"traj={row['trajectory']} | "
-            f"profile={row.get('continuationProfile')}"
+            f"action={row.get('preferredAction')} | "
+            f"curve={row.get('expectancyCurveCluster')} | "
+            f"swing={row.get('swingGrade')} | "
+            f"window={row.get('bestSwingWindow')}"
         )
 
     print("")

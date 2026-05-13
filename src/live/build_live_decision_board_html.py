@@ -20,22 +20,22 @@ def load_json(path):
 
 def main():
     print("=================================")
-    print("🎨 BUILD LIVE SYMBOL MONITOR HTML")
+    print("🎨 BUILD LIVE DECISION BOARD HTML")
     print("=================================")
 
     _ = load_json(INPUT_PATH)
     generated_at = datetime.now(timezone.utc).isoformat()
 
     # 중요:
-    # 기존 대시보드 레이아웃/상세패널/시그널 패널은 유지한다.
-    # 이번 업그레이드는 score / confirmedScore / live delta / survivability profile 표시만 추가한다.
-    html = """
+    # 이 파일은 live decision board JSON을 사람이 보기 좋은 한글 운용 보드로 표시한다.
+    # 내부 엔진 상태명은 유지하되, 화면에서는 직관적인 한글 해석을 우선 노출한다.
+    html = r"""
 <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Alpha-Flow V2 Live Symbol Monitor</title>
+  <title>Alpha-Flow V2 실시간 운용 보드</title>
   <style>
     :root {
       --bg: #070b12;
@@ -65,10 +65,7 @@ def main():
       padding: 26px;
     }
 
-    .page {
-      max-width: 1500px;
-      margin: 0 auto;
-    }
+    .page { max-width: 1560px; margin: 0 auto; }
 
     .hero {
       display: flex;
@@ -78,25 +75,10 @@ def main():
       margin-bottom: 20px;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 32px;
-      letter-spacing: -0.04em;
-    }
+    h1 { margin: 0; font-size: 32px; letter-spacing: -0.04em; }
+    .subtitle { margin-top: 8px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 
-    .subtitle {
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .status-box {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
+    .status-box { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
     .badge {
       padding: 9px 13px;
       border: 1px solid var(--border);
@@ -105,7 +87,6 @@ def main():
       color: var(--muted);
       font-size: 12px;
     }
-
     .live-dot {
       display: inline-block;
       width: 8px;
@@ -122,13 +103,7 @@ def main():
       gap: 14px;
       margin-bottom: 22px;
     }
-    .layout.sidebar-closed {
-      grid-template-columns: 1fr;
-    }
 
-    .layout.sidebar-closed .detail-panel {
-      display: none;
-    }
     .summary-card {
       border: 1px solid var(--border);
       border-radius: 18px;
@@ -136,48 +111,26 @@ def main():
       background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
       box-shadow: 0 12px 32px rgba(0,0,0,0.25);
     }
-
     .summary-card.confirming,
     .summary-card.watch {
       border-color: rgba(30,232,138,0.35);
       background: linear-gradient(180deg, rgba(30,232,138,0.13), rgba(13,20,32,0.86));
     }
-
     .summary-card.caution {
       border-color: rgba(255,173,66,0.45);
       background: linear-gradient(180deg, rgba(255,173,66,0.14), rgba(13,20,32,0.86));
     }
-
     .summary-card.risk {
       border-color: rgba(255,77,94,0.45);
       background: linear-gradient(180deg, rgba(255,77,94,0.15), rgba(13,20,32,0.86));
     }
+    .summary-title { color: var(--muted); font-size: 13px; font-weight: 800; }
+    .summary-count { font-size: 34px; font-weight: 950; margin-top: 6px; }
+    .summary-desc { color: var(--muted); font-size: 12px; margin-top: 5px; line-height: 1.4; }
 
-    .summary-title {
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .summary-count {
-      font-size: 34px;
-      font-weight: 950;
-      margin-top: 6px;
-    }
-
-    .summary-desc {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 5px;
-      line-height: 1.4;
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 390px;
-      gap: 18px;
-      align-items: start;
-    }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 430px; gap: 18px; align-items: start; }
+    .layout.sidebar-closed { grid-template-columns: 1fr; }
+    .layout.sidebar-closed .detail-panel { display: none; }
 
     .group-section {
       background: rgba(13,20,32,0.84);
@@ -187,26 +140,9 @@ def main():
       margin-bottom: 22px;
       box-shadow: 0 14px 36px rgba(0,0,0,0.30);
     }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .section-header h2 {
-      margin: 0;
-      font-size: 22px;
-      letter-spacing: -0.03em;
-    }
-
-    .section-header p {
-      margin: 5px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .section-header h2 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+    .section-header p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
     .section-count {
       background: var(--panel2);
       border: 1px solid var(--border);
@@ -215,19 +151,8 @@ def main():
       font-weight: 900;
     }
 
-    .table-wrap {
-      overflow-x: auto;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 1120px;
-      background: rgba(7,11,18,0.55);
-    }
-
+    .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; min-width: 1260px; background: rgba(7,11,18,0.55); }
     th {
       text-align: left;
       color: var(--muted);
@@ -238,7 +163,6 @@ def main():
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
     }
-
     td {
       padding: 12px 14px;
       border-bottom: 1px solid rgba(32,48,73,0.62);
@@ -246,18 +170,11 @@ def main():
       white-space: nowrap;
       vertical-align: top;
     }
-
     tr { cursor: pointer; }
     tr:hover td { background: rgba(78,161,255,0.07); }
     tr.selected td { background: rgba(30,232,138,0.08); }
 
-    .symbol {
-      font-weight: 950;
-      color: white;
-      font-size: 16px;
-      letter-spacing: 0.02em;
-    }
-
+    .symbol { font-weight: 950; color: white; font-size: 16px; letter-spacing: 0.02em; }
     .pill {
       display: inline-flex;
       padding: 6px 9px;
@@ -265,27 +182,17 @@ def main():
       font-size: 11px;
       font-weight: 900;
       border: 1px solid var(--border);
+      white-space: normal;
+      line-height: 1.35;
     }
-
     .confirming, .watch { color: var(--green); }
     .caution { color: var(--orange); }
     .risk { color: var(--red); }
     .neutral { color: var(--gray); }
-
-    .pill.confirming, .pill.watch {
-      background: rgba(30,232,138,0.12);
-      border-color: rgba(30,232,138,0.34);
-    }
-
-    .pill.caution {
-      background: rgba(255,173,66,0.14);
-      border-color: rgba(255,173,66,0.36);
-    }
-
-    .pill.risk {
-      background: rgba(255,77,94,0.14);
-      border-color: rgba(255,77,94,0.36);
-    }
+    .pill.confirming, .pill.watch { background: rgba(30,232,138,0.12); border-color: rgba(30,232,138,0.34); }
+    .pill.caution { background: rgba(255,173,66,0.14); border-color: rgba(255,173,66,0.36); }
+    .pill.risk { background: rgba(255,77,94,0.14); border-color: rgba(255,77,94,0.36); }
+    .pill.neutral { background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.30); }
 
     .score, .move, .failure { font-weight: 950; }
     .score-hot { color: var(--yellow); text-shadow: 0 0 14px rgba(255,207,90,0.3); }
@@ -293,37 +200,23 @@ def main():
     .score-mid { color: var(--blue); }
     .score-weak { color: var(--orange); }
     .score-bad { color: var(--red); }
-
     .move-fire { color: var(--yellow); }
     .move-up { color: var(--green); }
     .move-down { color: var(--orange); }
     .move-crash { color: var(--red); }
     .move-flat { color: var(--gray); }
-
     .failure-low { color: var(--green); }
     .failure-mid { color: var(--orange); }
     .failure-high { color: var(--red); }
 
-    .trend-good { color: var(--green); font-weight: 900; }
-    .trend-bad { color: var(--red); font-weight: 900; }
-    .trend-flat { color: var(--gray); font-weight: 800; }
-
-    .subline {
+    .subline, .profile-line {
       margin-top: 4px;
       color: var(--muted);
       font-size: 11px;
       line-height: 1.45;
-    }
-
-    .profile-line {
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.45;
-      max-width: 260px;
       white-space: normal;
+      max-width: 300px;
     }
-
     .empty { text-align: center; color: var(--muted); padding: 28px; }
 
     .detail-panel {
@@ -338,18 +231,9 @@ def main():
       overflow-y: auto;
       scrollbar-width: thin;
     }
-
     .detail-panel::-webkit-scrollbar { width: 8px; }
     .detail-panel::-webkit-scrollbar-thumb { background: rgba(142,160,184,0.45); border-radius: 999px; }
-
-    .detail-title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
+    .detail-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
     .detail-symbol { font-size: 28px; font-weight: 950; letter-spacing: -0.03em; }
     .detail-grade {
       font-size: 13px;
@@ -361,63 +245,46 @@ def main():
       color: var(--green);
       white-space: nowrap;
     }
-
     .detail-help { color: var(--muted); font-size: 13px; line-height: 1.55; margin-bottom: 16px; }
     .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-    .metric {
-      background: rgba(7,11,18,0.56);
-      border: 1px solid rgba(32,48,73,0.72);
-      border-radius: 14px;
-      padding: 12px;
-    }
-
+    .metric { background: rgba(7,11,18,0.56); border: 1px solid rgba(32,48,73,0.72); border-radius: 14px; padding: 12px; }
     .metric-label { color: var(--muted); font-size: 11px; font-weight: 800; margin-bottom: 7px; }
     .metric-value { font-size: 18px; font-weight: 950; }
-
-    .explain-box {
-      margin-top: 12px;
-      background: rgba(7,11,18,0.56);
-      border: 1px solid rgba(32,48,73,0.72);
-      border-radius: 16px;
-      padding: 14px;
-    }
-
+    .explain-box { margin-top: 12px; background: rgba(7,11,18,0.56); border: 1px solid rgba(32,48,73,0.72); border-radius: 16px; padding: 14px; }
     .explain-title { font-size: 14px; font-weight: 950; margin-bottom: 8px; }
     .explain-list { margin: 0; padding-left: 18px; color: var(--text); font-size: 13px; line-height: 1.65; }
-
-    .verdict {
-      margin-top: 12px;
-      padding: 14px;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.035);
-    }
-
+    .top-interpretation { font-size: 13px; line-height: 1.65; color: var(--text); }
+    .verdict { margin-top: 12px; padding: 14px; border-radius: 16px; border: 1px solid var(--border); background: rgba(255,255,255,0.035); }
     .verdict.good { border-color: rgba(30,232,138,0.36); background: rgba(30,232,138,0.10); }
     .verdict.watch { border-color: rgba(255,207,90,0.36); background: rgba(255,207,90,0.08); }
     .verdict.bad { border-color: rgba(255,77,94,0.36); background: rgba(255,77,94,0.08); }
     .verdict-title { font-weight: 950; margin-bottom: 5px; }
     .verdict-text { color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .signal-banner { margin-bottom: 12px; padding: 13px 14px; border-radius: 16px; border: 1px solid var(--border); font-weight: 950; line-height: 1.45; }
+    .signal-buy { color: var(--green); background: rgba(30,232,138,0.12); border-color: rgba(30,232,138,0.38); }
+    .signal-watch { color: var(--yellow); background: rgba(255,207,90,0.10); border-color: rgba(255,207,90,0.34); }
+    .signal-risk { color: var(--red); background: rgba(255,77,94,0.10); border-color: rgba(255,77,94,0.34); }
 
-    .signal-banner {
+    .position-banner {
       margin-bottom: 12px;
       padding: 13px 14px;
       border-radius: 16px;
       border: 1px solid var(--border);
-      font-weight: 950;
-      line-height: 1.45;
+      line-height: 1.55;
+      font-size: 13px;
+      background: rgba(255,255,255,0.035);
     }
-
-    .signal-buy { color: var(--green); background: rgba(30,232,138,0.12); border-color: rgba(30,232,138,0.38); }
-    .signal-watch { color: var(--yellow); background: rgba(255,207,90,0.10); border-color: rgba(255,207,90,0.34); }
-    .signal-risk { color: var(--red); background: rgba(255,77,94,0.10); border-color: rgba(255,77,94,0.34); }
+    .position-banner.safe { border-color: rgba(30,232,138,0.34); background: rgba(30,232,138,0.08); }
+    .position-banner.watch { border-color: rgba(255,207,90,0.36); background: rgba(255,207,90,0.08); }
+    .position-banner.danger { border-color: rgba(255,77,94,0.38); background: rgba(255,77,94,0.09); }
+    .position-title { font-weight: 950; margin-bottom: 4px; }
+    .position-text { color: var(--muted); }
 
     @media (max-width: 1200px) {
       .summary-grid { grid-template-columns: repeat(2, 1fr); }
       .layout { grid-template-columns: 1fr; }
       .detail-panel { position: relative; top: auto; }
     }
-
     @media (max-width: 720px) {
       body { padding: 16px; }
       .hero { display: block; }
@@ -431,13 +298,13 @@ def main():
   <div class="page">
     <div class="hero">
       <div>
-        <h1>🔥 Alpha-Flow V2 Live Symbol Monitor</h1>
-        <div class="subtitle">상위 후보 실시간 감시판 — 원천 구조 점수와 Live 보정 변화를 함께 표시</div>
+        <h1>🔥 Alpha-Flow V2 실시간 운용 보드</h1>
+        <div class="subtitle">상승 지속 후보 실시간 운용판 — 원천 구조, 장중 힘, 실패 압력, 스윙 기대 구간을 함께 표시</div>
       </div>
       <div class="status-box">
-        <div class="badge"><span class="live-dot"></span>Auto Update ON</div>
-        <div class="badge">refresh: <span id="refreshSec">5</span>s</div>
-        <div class="badge">last update: <span id="lastUpdate">-</span></div>
+        <div class="badge"><span class="live-dot"></span>자동 갱신 ON</div>
+        <div class="badge">새로고침: <span id="refreshSec">5</span>초</div>
+        <div class="badge">최근 업데이트: <span id="lastUpdate">-</span></div>
       </div>
     </div>
 
@@ -451,7 +318,7 @@ def main():
           <div class="detail-grade">대기</div>
         </div>
         <div class="detail-help">
-          왼쪽 표에서 종목을 누르면 원천 구조 점수, Live 보정 점수, 추세 지속 상태, 실패 위험을 한글로 풀어서 보여준다.
+          왼쪽 표에서 종목을 누르면 원천 구조, 장중 힘, 상승 지속 가능성, 스윙 기대 구간을 한글로 풀어서 보여준다.
         </div>
       </aside>
     </div>
@@ -473,10 +340,10 @@ const GROUPS = [
 ];
 
 const META = {
-  ACTION_CONFIRMING: { title: "🔥 CONFIRMING", desc: "즉시 강한 재가속 확인 후보", cls: "confirming" },
-  ACTION_WATCH: { title: "🟢 WATCH", desc: "실시간 관찰 핵심 후보", cls: "watch" },
-  ACTION_CAUTION: { title: "🟠 CAUTION", desc: "회복은 있으나 구조 부담", cls: "caution" },
-  ACTION_RISK_OFF: { title: "🔴 RISK OFF", desc: "장중 실패/분산/붕괴 위험", cls: "risk" }
+  ACTION_CONFIRMING: { title: "🔥 강한 확인", desc: "장중 힘이 붙은 우선 감시 후보", cls: "confirming" },
+  ACTION_WATCH: { title: "🟢 관찰", desc: "상승 지속 가능성을 계속 볼 후보", cls: "watch" },
+  ACTION_CAUTION: { title: "🟠 주의", desc: "회복은 있으나 구조 부담이 있는 후보", cls: "caution" },
+  ACTION_RISK_OFF: { title: "🔴 위험 회피", desc: "장중 실패·매물·하락 전환 위험 후보", cls: "risk" }
 };
 
 function esc(v) {
@@ -546,230 +413,375 @@ function failureClass(v) {
   return "failure-low";
 }
 
-function trendClass(v) {
-  const s = String(v || "");
-  if (s.includes("IMPROVING") || s.includes("BUILDING") || s.includes("STRONG")) return "trend-good";
-  if (s.includes("DETERIORATING") || s.includes("WEAK") || s.includes("PERSISTING")) return "trend-bad";
-  return "trend-flat";
-}
-
-function stateKo(v) {
-  const s = String(v || "");
-  if (s.includes("TACTICAL_PARABOLIC")) return "고위험 고수익 후반부 continuation 감시 상태";
-  if (s.includes("RECOVERY_EXTENSION")) return "회복 이후 재가속 관찰 상태";
-  if (s.includes("RECOVERY_WATCHLIST")) return "회복 초입 관찰 상태";
-  if (s.includes("UNDER_PRESSURE")) return "장중 압박 발생";
-  if (s.includes("FAILING")) return "장중 실패 위험";
-  if (s.includes("BREAKDOWN")) return "붕괴 확인 위험";
-  if (s.includes("DISTRIBUTION")) return "분산/매물 부담";
-  if (s.includes("CONTINUATION_HOLDING")) return "추세 지속이 유지되는 상태";
-  return "중립 상태";
-}
-
-function trajectoryKo(v) {
-  const s = String(v || "");
-  if (s.includes("RECOVERY")) return "최근 흐름이 회복 방향으로 이어지는 중";
-  if (s.includes("ACCELERATING")) return "가속 흐름";
-  if (s.includes("DISTRIBUTION")) return "매물 출회 흐름";
-  if (s.includes("BREAKDOWN")) return "하락 지속 흐름";
-  if (s.includes("STABLE")) return "안정적인 추세 지속 흐름";
-  return "명확한 흐름 부족";
-}
-
-function profileKo(v) {
-  const s = String(v || "");
-  if (s === "RECOVERY_REACCELERATION_ALIVE") return "회복 후 재가속 continuation이 아직 살아있는 상태";
-  if (s === "TACTICAL_PARABOLIC_ALIVE") return "고위험 후반부지만 아직 momentum이 살아있는 상태";
-  if (s === "CONTINUATION_STILL_ALIVE") return "추세 지속 구조가 아직 살아있는 상태";
-  if (s === "ACCELERATION_ALIVE") return "가속 continuation이 유지되는 상태";
-  if (s === "CONTINUATION_BREAKING") return "continuation이 깨지는 중";
-  if (s === "LOW_SURVIVABILITY_STRUCTURE") return "생존 가능성이 낮은 구조";
-  if (s === "UNCERTAIN_CONTINUATION") return "살아있지만 확정성이 부족한 continuation";
-  return "profile 해석 부족";
-}
-
-function riskKo(v) {
-  const s = String(v || "");
-  if (s === "CONTROLLED_RISK") return "위험이 통제되는 구간";
-  if (s === "ELEVATED_RISK") return "위험이 높아지는 구간";
-  if (s === "HIGH_VOLATILITY_EXTENSION_RISK") return "변동성 큰 후반부 extension 위험";
-  if (s === "DISTRIBUTION_RISK") return "매물 출회 위험";
-  if (s === "STRUCTURAL_BREAKDOWN_RISK") return "구조적 붕괴 위험";
-  if (s === "EXTREME_FAILURE_RISK") return "극단적 실패 위험";
-  if (s === "LATE_STAGE_REVERSAL_RISK") return "후반부 반전 위험";
-  return "위험 profile 해석 부족";
-}
-
-function expectancyKo(v) {
-  const s = String(v || "");
-  if (s === "SHORT_SWING_BURST") return "단기 급등 기대값 중심";
-  if (s === "SWING_CONTINUATION") return "스윙 continuation 기대값 중심";
-  if (s === "MIDTERM_SURVIVABILITY") return "중기 생존 기대값 중심";
-  if (s === "LONG_DRIFT_CONTINUATION") return "느리지만 긴 continuation 기대값";
-  if (s === "NEGATIVE_EXPECTANCY") return "기대값 부정적";
-  if (s === "MIXED_EXPECTANCY") return "시간축별 기대값이 섞인 상태";
-  return "expectancy profile 해석 부족";
-}
-function archetypeKo(v) {
-  const s = String(v || "");
-
-  if (s === "STRUCTURAL_CONTINUATION") {
-    return "천천히 오래 살아남는 continuation 구조";
-  }
-
-  if (s === "RECOVERY_WATCH") {
-    return "회복 초입 감시 구조. 아직 확정은 아니지만 재가속 가능성을 관찰하는 상태";
-  }
-
-  if (s === "RECOVERY_REACCELERATION") {
-    return "조정 이후 다시 살아나는 재가속 구조";
-  }
-
-  if (s === "LOW_VOLATILITY_BASE") {
-    return "조용한 기관 축적형 base 구조";
-  }
-
-  if (s === "DISTRIBUTION_PRESSURE") {
-    return "매물 압력이 증가하는 continuation";
-  }
-
-  if (s === "DISTRIBUTION_BREAKDOWN") {
-    return "실제 breakdown 위험 continuation";
-  }
-
-  if (s === "SLOW_DRIFT_CONTINUATION") {
-    return "천천히 우상향 지속되는 continuation";
-  }
-
-  if (s === "INSTITUTIONAL_DRIFT") {
-  return "기관성 느린 우상향 continuation 구조";
-  }
-
-  if (s === "ACCELERATING_CONTINUATION") {
-    return "상승 가속이 붙는 continuation 구조";
-  }
-
-  if (s === "TACTICAL_PARABOLIC_CONTINUATION") {
-    return "후반부 고위험 고수익 continuation 구조";
-  }
-
-  if (s === "LATE_STAGE_CONTINUATION") {
-    return "후반부 continuation. 수익 가능성은 있지만 리스크 관리가 중요한 상태";
-  }
-
-
-  return "archetype 해석 부족";
-}
-
-function operatingModeKo(v) {
-  const s = String(v || "");
-
-  if (s === "LONG_SURVIVABILITY_CONTINUATION") {
-    return "30~60일 continuation 생존 기대값 중심";
-  }
-
-  if (s === "MIDTERM_CONTINUATION") {
-    return "중기 continuation 기대값";
-  }
-
-  if (s === "SHORT_TERM_BREAKOUT") {
-    return "단기 breakout 기대값";
-  }
-
-  if (s === "TACTICAL_MOMENTUM") {
-    return "짧은 momentum tactical 구조";
-  }
-
-  if (s === "NEGATIVE_EXPECTANCY") {
-    return "기대값이 불리한 상태";
-  }
-
-  return "operating mode 해석 부족";
-}
-
-function horizonKo(v) {
-  const s = String(v || "");
-
-  if (s === "1d") return "초단기";
-  if (s === "3d") return "단기";
-  if (s === "5d") return "스윙 단기";
-  if (s === "10d") return "스윙";
-  if (s === "20d") return "중기";
-  if (s === "30d") return "중기 continuation";
-  if (s === "60d") return "장기 continuation";
-
-  return "시간축 해석 부족";
-}
-
-function hierarchyKo(v) {
-  const s = String(v || "");
-
-  if (s === "ELITE_CONTINUATION_STRUCTURE") {
-    return "상위 timeframe까지 맞는 매우 강한 continuation 구조";
-  }
-
-  if (s === "CONSTRUCTIVE_PAUSE_STRUCTURE") {
-    return "좋은 추세 안에서 쉬어가는 건전한 눌림 구조";
-  }
-
-  if (s === "HEALTHY_BUT_MONTHLY_EXTENDED") {
-    return "구조는 좋지만 월봉 확장 부담이 있는 상태";
-  }
-
-  if (s === "AGING_CONTINUATION_STRUCTURE") {
-    return "오래 진행된 continuation. 끝난 것은 아니지만 피로도 확인 필요";
-  }
-
-  if (s === "LATE_STAGE_REACCELERATION") {
-    return "후반부에서 다시 힘이 붙는 재가속 구조";
-  }
-
-  if (s === "TERMINAL_STRUCTURE_RISK") {
-    return "후반부 과열/붕괴 위험이 섞인 구조";
-  }
-
-  if (s === "DETERIORATING_STRUCTURE") {
-    return "구조가 약해지고 있는 위험 상태";
-  }
-
-  if (s === "MIXED_STRUCTURE") {
-    return "좋은 신호와 위험 신호가 섞인 중립 구조";
-  }
-
-  return "상위 구조 해석 부족";
-}
-
-function biasKo(v) {
-  const s = String(v || "");
-
-  if (s === "HIGH") return "continuation 생존 가능성이 높게 평가됨";
-  if (s === "GOOD") return "continuation 생존 가능성이 양호함";
-  if (s === "GOOD_BUT_EXTENSION_RISK") return "좋지만 확장 부담이 있어 추격 주의";
-  if (s === "NEUTRAL") return "중립. 추가 확인 필요";
-  if (s === "CAUTION") return "주의. 구조 약화 가능성 있음";
-  if (s === "AVOID") return "회피 우선. 실패 위험이 큼";
-  if (s === "TACTICAL_ONLY") return "짧은 전술 매매만 가능한 상태";
-
-  return "bias 해석 부족";
-}
-
-function trendKo(v) {
-  const s = String(v || "");
-  if (s.includes("RECOVERY_PRESSURE_BUILDING")) return "회복 압력이 쌓이는 중";
-  if (s.includes("PERSISTENT_STRONG_PRESSURE")) return "강한 압력이 유지되는 중";
-  if (s.includes("IMPROVING")) return "장중 힘이 개선되는 중";
-  if (s.includes("DETERIORATING")) return "장중 힘이 약해지는 중";
-  if (s.includes("WEAK")) return "약한 압력";
-  if (s.includes("STABLE")) return "큰 변화 없이 안정";
-  return "아직 판단 근거 부족";
-}
-
 function groupKo(v) {
   if (v === "ACTION_CONFIRMING") return "강한 확인 후보";
   if (v === "ACTION_WATCH") return "관찰 후보";
   if (v === "ACTION_CAUTION") return "주의 후보";
   if (v === "ACTION_RISK_OFF") return "위험 회피 후보";
   return "중립";
+}
+
+function stateKo(v) {
+  const s = String(v || "");
+  if (s.includes("REACCELERATION_CONFIRMING")) return "장중 재가속이 확인되는 중";
+  if (s.includes("RECOVERY_EXTENSION")) return "회복 후 다시 힘이 붙는 상태";
+  if (s.includes("RECOVERY_WATCHLIST")) return "회복 초입 관찰 상태";
+  if (s.includes("UNDER_PRESSURE")) return "장중 압박이 생긴 상태";
+  if (s.includes("FAILING")) return "장중 회복 실패 위험";
+  if (s.includes("BREAKDOWN")) return "하락 전환 위험이 확인되는 상태";
+  if (s.includes("DISTRIBUTION")) return "매물 부담이 커지는 상태";
+  if (s.includes("CONTINUATION_HOLDING")) return "상승 지속 흐름이 유지되는 상태";
+  return "중립 상태";
+}
+
+function trajectoryKo(v) {
+  const s = String(v || "");
+
+  if (s.includes("RECOVERY")) {
+    return "조정 후 다시 살아나는 흐름";
+  }
+
+  if (s.includes("ACCELERATION")) {
+    return "상승 힘이 강해지는 흐름";
+  }
+
+  if (s.includes("DISTRIBUTION")) {
+    return "매물/차익실현 압력이 증가하는 흐름";
+  }
+
+  if (s.includes("BREAKDOWN")) {
+    return "상승 흐름이 무너지는 방향";
+  }
+
+  if (s.includes("AGING")) {
+    return "상승 흐름이 점점 둔화되는 상태";
+  }
+
+  return "최근 흐름 방향 해석 부족";
+}
+
+function hierarchyKo(v) {
+  const s = String(v || "");
+
+  if (s.includes("ELITE_CONTINUATION")) {
+    return "상위 시간축까지 매우 강한 상승 구조";
+  }
+
+  if (s.includes("MONTHLY_EXTENDED")) {
+    return "월봉 기준 이미 많이 오른 위치";
+  }
+
+  if (s.includes("HEALTHY")) {
+    return "상위 구조는 건강하게 유지되는 상태";
+  }
+
+  if (s.includes("AGING")) {
+    return "상위 상승 구조가 둔화되는 상태";
+  }
+
+  if (s.includes("DISTRIBUTION")) {
+    return "상위 구조에서 매물 압력이 증가하는 상태";
+  }
+
+  if (s.includes("TERMINAL")) {
+    return "상승 후반부 exhaustion 위험 구간";
+  }
+
+  return "상위 시간축 구조 해석 부족";
+}
+
+function profileKo(v) {
+  const s = String(v || "");
+  if (s === "RECOVERY_REACCELERATION_ALIVE") return "회복 후 다시 살아나는 흐름";
+  if (s === "TACTICAL_PARABOLIC_ALIVE") return "후반부 고위험 상승 흐름이 아직 살아있음";
+  if (s === "CONTINUATION_STILL_ALIVE") return "상승 지속 구조가 아직 유지됨";
+  if (s === "ACCELERATION_ALIVE") return "상승 가속이 유지되는 상태";
+  if (s === "CONTINUATION_BREAKING") return "상승 지속 구조가 깨지는 중";
+  if (s === "LOW_SURVIVABILITY_STRUCTURE") return "오래 유지될 가능성이 낮은 구조";
+  if (s === "UNCERTAIN_CONTINUATION") return "방향은 있지만 확신은 부족한 상태";
+  if (s === "HIGH_SURVIVABILITY_STRUCTURE") return "오래 유지될 가능성이 높은 구조";
+  return "지속 가능성 해석 부족";
+}
+
+function riskKo(v) {
+  const s = String(v || "");
+  if (s === "CONTROLLED_RISK") return "위험이 아직 통제되는 구간";
+  if (s === "ELEVATED_RISK") return "위험이 높아지는 구간";
+  if (s === "HIGH_VOLATILITY_EXTENSION_RISK") return "변동성이 큰 후반부 상승 부담";
+  if (s === "DISTRIBUTION_RISK") return "매물 출회 위험";
+  if (s === "STRUCTURAL_BREAKDOWN_RISK") return "구조적 하락 전환 위험";
+  if (s === "EXTREME_FAILURE_RISK") return "실패 위험이 매우 큰 상태";
+  if (s === "LATE_STAGE_REVERSAL_RISK") return "후반부 반전 위험";
+  return "위험 해석 부족";
+}
+
+function expectancyKo(v) {
+  const s = String(v || "");
+  if (s === "SHORT_SWING_BURST") return "짧은 급등 기대 중심";
+  if (s === "SWING_CONTINUATION") return "스윙 상승 지속 기대 중심";
+  if (s === "MIDTERM_SURVIVABILITY") return "중기 생존 기대 중심";
+  if (s === "LONG_DRIFT_CONTINUATION") return "느리지만 길게 이어지는 상승 기대";
+  if (s === "NEGATIVE_EXPECTANCY") return "기대값이 불리한 상태";
+  if (s === "MIXED_EXPECTANCY") return "시간축별 기대값이 섞인 상태";
+  return "기대값 해석 부족";
+}
+
+function archetypeKo(v) {
+  const s = String(v || "");
+  if (s === "STRUCTURAL_CONTINUATION") return "구조적으로 천천히 이어지는 상승형";
+  if (s === "RECOVERY_WATCH") return "회복 초입 감시형";
+  if (s === "RECOVERY_REACCELERATION") return "조정 후 다시 힘이 붙는 재가속형";
+  if (s === "LOW_VOLATILITY_BASE") return "조용히 힘을 모으는 바닥 다지기형";
+  if (s === "DISTRIBUTION_PRESSURE") return "매물 부담이 커지는 상승형";
+  if (s === "DISTRIBUTION_BREAKDOWN") return "매물 부담 후 하락 전환 위험형";
+  if (s === "SLOW_DRIFT_CONTINUATION") return "천천히 우상향하는 지속형";
+  if (s === "INSTITUTIONAL_DRIFT") return "기관성 느린 우상향형";
+  if (s === "ACCELERATING_CONTINUATION") return "상승 가속형";
+  if (s === "TACTICAL_PARABOLIC_CONTINUATION") return "후반부 고위험 고수익 상승형";
+  if (s === "LATE_STAGE_CONTINUATION") return "후반부 상승 지속형. 수익 가능성과 위험이 같이 큰 상태";
+  return "상태 유형 해석 부족";
+}
+
+function operatingModeKo(v) {
+  const s = String(v || "");
+  if (s === "LONG_SURVIVABILITY_CONTINUATION") return "20~60일 이상 흐름 유지 기대";
+  if (s === "MIDTERM_CONTINUATION") return "10~20일 중기 스윙 기대";
+  if (s === "SHORT_TERM_BREAKOUT") return "1~5일 빠른 돌파 기대";
+  if (s === "SHORT_SWING_CONTINUATION") return "3~10일 짧은 스윙 기대";
+  if (s === "SWING_TO_MIDTERM_CONTINUATION") return "10~20일 스윙 지속 기대";
+  if (s === "TACTICAL_MOMENTUM") return "짧은 힘으로 대응하는 전술 구간";
+  if (s === "TACTICAL_HIGH_RISK_CONTINUATION") return "후반부 고위험 단기 대응 구간";
+  if (s === "TACTICAL_DISTRIBUTION_BOUNCE") return "매물 부담 속 짧은 반등 대응";
+  if (s === "DISTRIBUTION_RISK_REVIEW") return "매물 부담 검토 필요";
+  if (s === "REGIME_CONSTRAINED_REVIEW") return "시장 환경 때문에 보수적 확인 필요";
+  if (s === "NO_EXPECTANCY_DATA") return "검증 데이터 부족";
+  return "운용 방식 해석 부족";
+}
+
+function curveKo(v) {
+  const s = String(v || "");
+  if (s === "FAST_IGNITION_SHORT_SWING") return "초반에 힘이 빨리 붙는 짧은 스윙형";
+  if (s === "HIGH_QUALITY_SWING_CONTINUATION") return "3~20일 스윙 흐름이 건강한 구조";
+  if (s === "IGNITION_TO_SWING_CONTINUATION") return "초반 힘이 스윙 흐름으로 이어지는 구조";
+  if (s === "INSTITUTIONAL_DRIFT_CONTINUATION") return "기관형으로 천천히 우상향할 가능성";
+  if (s === "SLOW_COMPOUNDING_CONTINUATION") return "느리지만 꾸준히 쌓이는 상승 구조";
+  if (s === "MIDTERM_SWING_EXPANSION") return "10~20일 구간에서 확장 가능성";
+  if (s === "LONG_TAIL_CONTINUATION") return "초반보다 뒤쪽에서 살아나는 긴 꼬리형";
+  if (s === "BURST_AND_FADE") return "초반 급등 후 힘이 빠질 수 있는 구조";
+  if (s === "TACTICAL_SWING_THEN_DECAY") return "짧은 상승 후 피로가 올 수 있는 구조";
+  if (s === "DELAYED_SWING_ACCELERATION") return "늦게 힘이 붙는 스윙 구조";
+  if (s === "DELAYED_RECOVERY_CONTINUATION") return "초반은 약하지만 뒤늦게 회복할 수 있는 구조";
+  if (s === "WEAK_OR_NEGATIVE_CURVE") return "기대값이 약하거나 불리한 구조";
+  if (s === "LOW_SAMPLE_RESEARCH_ONLY") return "비슷한 과거 사례가 부족한 상태";
+  if (s === "MIXED_EXPECTANCY_CURVE") return "시간축별 기대값이 섞인 상태";
+  return "기대 곡선 해석 부족";
+}
+
+function actionKo(v) {
+  const s = String(v || "");
+  if (s === "PRIMARY_SWING_CANDIDATE") return "핵심 스윙 후보";
+  if (s === "SHORT_SWING_FAST_PROFIT") return "짧게 먹고 빠지는 스윙형";
+  if (s === "SLOW_SWING_OR_HOLD_WITH_TRAIL") return "천천히 보되 추세 깨지면 줄이는 보유형";
+  if (s === "TACTICAL_10D_20D_EXIT_AWARE") return "10~20일 대응하되 피로 신호 확인";
+  if (s === "WATCH_FOR_CONFIRMATION") return "추가 확인 후 접근";
+  if (s === "WATCHLIST") return "관찰 리스트";
+  if (s === "DAY1_TO_DAY5_ONLY") return "1~5일 짧은 대응형";
+  if (s === "AVOID") return "회피 우선";
+  if (s === "RESEARCH_ONLY") return "과거 사례 부족으로 참고만";
+  if (s === "NO_CURVE_DATA") return "기대 곡선 데이터 없음";
+  return "중립 관찰";
+}
+
+function swingGradeKo(v) {
+  const s = String(v || "");
+  if (s === "ELITE_SWING_EXPECTANCY") return "스윙 기대값 매우 강함";
+  if (s === "HIGH_SWING_EXPECTANCY") return "스윙 기대값 강함";
+  if (s === "GOOD_SWING_EXPECTANCY") return "스윙 기대값 양호";
+  if (s === "MIXED_SWING_EXPECTANCY") return "스윙 기대값 혼합";
+  if (s === "WEAK_SWING_EXPECTANCY") return "스윙 기대값 약함";
+  if (s === "LOW_SAMPLE_RESEARCH_ONLY") return "과거 사례 부족";
+  return "스윙 기대값 해석 부족";
+}
+
+function biasKo(v) {
+  const s = String(v || "");
+  if (s === "HIGH") return "상승 흐름이 유지될 가능성이 높음";
+  if (s === "GOOD") return "상승 흐름 유지 가능성이 양호함";
+  if (s === "GOOD_BUT_EXTENSION_RISK") return "좋지만 이미 오른 부담이 있어 추격 주의";
+  if (s === "NEUTRAL") return "중립. 추가 확인 필요";
+  if (s === "CAUTION") return "주의. 구조 약화 가능성 있음";
+  if (s === "AVOID") return "회피 우선. 실패 위험이 큼";
+  if (s === "TACTICAL_ONLY") return "짧은 전술 대응만 가능한 상태";
+  return "판단 편향 해석 부족";
+}
+function highPositionKo(v) {
+  const s = String(v || "");
+
+  if (s === "GOOD_HIGH_POSITION") {
+    return "좋은 고점 상승 지속 구조";
+  }
+
+  if (s === "HEALTHY_HIGH_POSITION_BUT_ENTRY_RISK") {
+    return "건강하지만 진입 부담 있는 고점";
+  }
+
+  if (s === "BAD_HIGH_POSITION") {
+    return "위험한 고점 구조";
+  }
+
+  if (s === "HIGH_POSITION_DISTRIBUTION_RISK") {
+    return "고점 매물 증가 위험";
+  }
+
+  if (s === "LOW_SAMPLE_RESEARCH_ONLY") {
+    return "과거 사례 부족";
+  }
+
+  if (s === "NO_HIGH_POSITION_DATA") {
+    return "고점 품질 판단 데이터 부족";
+  }
+
+  return "혼합형 고점 구조";
+}
+function horizonOneLine(item) {
+  const h = String(item.bestSwingWindow || item.bestHorizon || "");
+  const curve = String(item.expectancyCurveCluster || "");
+
+  if (curve === "FAST_IGNITION_SHORT_SWING") return "3~10일 안에 빠르게 움직일 가능성을 보는 상태";
+  if (curve === "INSTITUTIONAL_DRIFT_CONTINUATION") return "20~60일 동안 천천히 우상향할 가능성을 보는 상태";
+  if (curve === "SLOW_COMPOUNDING_CONTINUATION") return "짧게 폭발하기보다 천천히 쌓이는 흐름을 보는 상태";
+  if (curve === "MIDTERM_SWING_EXPANSION") return "10~20일 구간에서 확장 가능성을 보는 상태";
+  if (curve === "LONG_TAIL_CONTINUATION") return "초반보다 뒤쪽에서 살아날 가능성을 보는 상태";
+  if (curve === "BURST_AND_FADE") return "초반 급등 후 힘이 빠질 수 있어 짧게 봐야 하는 상태";
+  if (curve === "LOW_SAMPLE_RESEARCH_ONLY") return "비슷한 과거 사례가 부족해 참고용으로만 보는 상태";
+
+  if (h === "1d") return "오늘~내일 반응을 주로 보는 상태";
+  if (h === "3d") return "3일 안의 빠른 반응을 보는 상태";
+  if (h === "5d") return "1주 안의 짧은 스윙을 보는 상태";
+  if (h === "10d") return "약 2주 스윙을 보는 상태";
+  if (h === "20d") return "약 1개월 스윙 흐름을 보는 상태";
+  if (h === "30d") return "1~2개월 중기 흐름을 보는 상태";
+  if (h === "60d") return "2~3개월 동안 흐름 유지 가능성을 보는 상태";
+
+  return "아직 뚜렷한 우위 시간축이 부족한 상태";
+}
+
+function topInterpretation(item) {
+  return `${actionKo(item.preferredAction)} · ${curveKo(item.expectancyCurveCluster)} · ${horizonOneLine(item)} · ${profileKo(item.continuationProfile)}`;
+}
+
+function extensionRisk(item) {
+  const hierarchy = String(item.hierarchy || "");
+  const bias = String(item.bias || "");
+  const profile = String(item.continuationProfile || "");
+  const curve = String(item.expectancyCurveCluster || "");
+
+  const score = nval(item.score);
+  const confirmed = nval(item.confirmedScore);
+  const move = nval(item.move);
+  const failure = nval(item.failurePressure);
+  const survival = nval(item.survivabilityScore);
+  const distribution = nval(item.distributionPressure);
+
+  let risk = 0;
+  const reasons = [];
+
+  if (hierarchy.includes("MONTHLY_EXTENDED")) {
+    risk += 28;
+    reasons.push("상위 시간축에서 이미 많이 오른 위치");
+  }
+
+  if (hierarchy.includes("TERMINAL") || hierarchy.includes("LATE_STAGE")) {
+    risk += 30;
+    reasons.push("후반부 과열/피로 구간 가능성");
+  }
+
+  if (hierarchy.includes("AGING")) {
+    risk += 16;
+    reasons.push("상승 흐름이 오래 진행된 상태");
+  }
+
+  if (bias === "GOOD_BUT_EXTENSION_RISK" || bias === "TACTICAL_ONLY") {
+    risk += 22;
+    reasons.push("좋지만 추격 부담이 있는 판정");
+  }
+
+  if (profile === "LOW_SURVIVABILITY_STRUCTURE") {
+    risk += 18;
+    reasons.push("오래 유지될 가능성이 낮게 평가됨");
+  }
+
+  if (score >= 85 && confirmed >= 80 && move >= 2) {
+    risk += 18;
+    reasons.push("점수와 장중 상승률이 동시에 높아 추격 매수 유혹이 큰 구간");
+  }
+
+  if (failure >= 45) {
+    risk += 18;
+    reasons.push("실패 압력이 중간 이상");
+  }
+
+  if (distribution >= 30) {
+    risk += 14;
+    reasons.push("매물 압력이 존재");
+  }
+
+  if (curve === "FAST_IGNITION_SHORT_SWING" || curve === "BURST_AND_FADE" || curve === "TACTICAL_SWING_THEN_DECAY") {
+    risk += 16;
+    reasons.push("짧게 움직인 뒤 힘이 약해질 수 있는 기대 곡선");
+  }
+
+  if (risk >= 65) {
+    return {
+      cls: "danger",
+      label: "고점 추격 위험 큼",
+      text: "점수는 높아도 현재 위치가 높거나 실패 압력이 있어 바로 따라붙기보다 눌림·재가속 확인이 필요하다.",
+      reasons
+    };
+  }
+
+  if (risk >= 38) {
+    return {
+      cls: "watch",
+      label: "추격 주의",
+      text: "구조는 살아있지만 가격 위치 부담이 있다. 신규 진입은 분할·짧은 손절 기준이 필요하다.",
+      reasons
+    };
+  }
+
+  return {
+    cls: "safe",
+    label: "추격 부담 낮음",
+    text: "현재 정보 기준으로는 고점 추격 위험보다 구조 유지 여부를 우선 확인하면 되는 구간이다.",
+    reasons
+  };
+}
+
+function positionKo(item) {
+  const e = extensionRisk(item);
+  return e.label;
+}
+
+function entryGuideKo(item) {
+  const e = extensionRisk(item);
+  const action = String(item.preferredAction || "");
+  const curve = String(item.expectancyCurveCluster || "");
+
+  if (e.cls === "danger") {
+    if (curve === "FAST_IGNITION_SHORT_SWING") {
+      return "신규 추격은 위험. 들어간다면 3~10일 짧은 스윙 전제로 빠른 익절/손절 기준이 필요하다.";
+    }
+    return "신규 추격보다는 눌림 후 다시 힘이 붙는지 확인하는 쪽이 안전하다.";
+  }
+
+  if (e.cls === "watch") {
+    if (action === "SLOW_SWING_OR_HOLD_WITH_TRAIL") {
+      return "한 번에 따라붙기보다 작게 보거나, 눌림 후 추세가 유지되는지 확인하는 접근이 맞다.";
+    }
+    return "관찰 우선. 장중 고점 돌파보다 눌림 이후 회복력이 더 중요하다.";
+  }
+
+  return "위치 부담은 크지 않다. 다만 실패 압력과 시장 상태가 같이 좋아지는지 확인해야 한다.";
 }
 
 function verdictFor(item) {
@@ -780,17 +792,11 @@ function verdictFor(item) {
   const group = String(item.decisionGroup || "");
   const profile = String(item.continuationProfile || "");
 
-  if (
-    score >= 88 &&
-    confirmed >= 80 &&
-    delta >= 0 &&
-    failure <= 45 &&
-    group !== "ACTION_RISK_OFF"
-  ) {
+  if (score >= 88 && confirmed >= 80 && delta >= 0 && failure <= 45 && group !== "ACTION_RISK_OFF") {
     return {
       cls: "good",
       title: "매수 검토 가능",
-      text: "원천 구조가 좋고 Live 보정도 우호적이다. 다만 실제 매수는 시장 지수와 손절 기준까지 같이 확인해야 한다."
+      text: "원천 구조와 장중 흐름이 같이 좋다. 다만 실제 매수는 시장 지수, 손절 기준, 진입 가격까지 같이 확인해야 한다."
     };
   }
 
@@ -798,7 +804,7 @@ function verdictFor(item) {
     return {
       cls: "watch",
       title: "우선 관찰 후보",
-      text: "continuation profile은 살아있지만 Live 보정 또는 실패 압력 확인이 더 필요하다."
+      text: "상승 지속성은 살아있지만 장중 보정 또는 실패 압력 확인이 더 필요하다."
     };
   }
 
@@ -825,42 +831,19 @@ function signalFor(item) {
   const group = String(item.decisionGroup || "");
   const profile = String(item.continuationProfile || "");
 
-  if (
-    score >= 90 &&
-    confirmed >= 85 &&
-    delta >= 0 &&
-    failure <= 45 &&
-    group !== "ACTION_RISK_OFF"
-  ) {
-    return {
-      cls: "signal-buy",
-      text: "🟢 강한 매수 검토 시그널: 원천 구조와 Live 보정이 같이 맞는다."
-    };
+  if (score >= 90 && confirmed >= 85 && delta >= 0 && failure <= 45 && group !== "ACTION_RISK_OFF") {
+    return { cls: "signal-buy", text: "🟢 강한 매수 검토: 원천 구조와 장중 힘이 같이 맞는다." };
   }
 
-  if (
-    score >= 80 &&
-    confirmed >= 80 &&
-    failure <= 50 &&
-    profile.includes("ALIVE")
-  ) {
-    return {
-      cls: "signal-watch",
-      text: "🟡 우선 감시 시그널: continuation은 살아있지만 장중 확인이 더 필요하다."
-    };
+  if (score >= 80 && confirmed >= 80 && failure <= 50 && profile.includes("ALIVE")) {
+    return { cls: "signal-watch", text: "🟡 우선 감시: 상승 지속성은 살아있지만 추가 확인이 필요하다." };
   }
 
   if (group === "ACTION_RISK_OFF" || failure >= 55) {
-    return {
-      cls: "signal-risk",
-      text: "🔴 보류 시그널: 실패 압력이나 장중 약화가 보여서 추격은 위험하다."
-    };
+    return { cls: "signal-risk", text: "🔴 보류: 실패 압력이나 장중 약화가 보여서 추격은 위험하다." };
   }
 
-  return {
-    cls: "signal-watch",
-    text: "🟡 관찰 시그널: 아직 확실한 매수 확인은 부족하다."
-  };
+  return { cls: "signal-watch", text: "🟡 관찰: 아직 확실한 매수 확인은 부족하다." };
 }
 
 function explainReasons(item) {
@@ -874,26 +857,21 @@ function explainReasons(item) {
   const distribution = nval(item.distributionPressure);
   const profile = String(item.continuationProfile || "");
 
-  if (confirmed >= 85) reasons.push("원천 구조 점수가 높다. 확정봉 기준 continuation 구조가 강하다.");
+  if (confirmed >= 85) reasons.push("원천 구조 점수가 높다. 확정봉 기준 상승 지속 구조가 강하다.");
   else if (confirmed >= 70) reasons.push("원천 구조는 양호하지만 최상급은 아니다.");
   else reasons.push("원천 구조 점수가 강하지 않다.");
 
-  if (delta > 3) reasons.push(`Live 보정이 +${delta.toFixed(2)}점으로 원천 구조를 더 강화하고 있다.`);
-  else if (delta > 0) reasons.push(`Live 보정이 +${delta.toFixed(2)}점으로 약하게 우호적이다.`);
-  else if (delta < -5) reasons.push(`Live 보정이 ${delta.toFixed(2)}점으로 크게 깎이고 있다. 장중 약화가 강하다.`);
-  else if (delta < 0) reasons.push(`Live 보정이 ${delta.toFixed(2)}점으로 소폭 부정적이다.`);
-  else reasons.push("Live 보정 영향은 거의 중립이다.");
+  if (delta > 3) reasons.push(`장중 보정이 +${delta.toFixed(2)}점으로 원천 구조를 더 강화하고 있다.`);
+  else if (delta > 0) reasons.push(`장중 보정이 +${delta.toFixed(2)}점으로 약하게 우호적이다.`);
+  else if (delta < -5) reasons.push(`장중 보정이 ${delta.toFixed(2)}점으로 크게 깎이고 있다. 장중 약화가 강하다.`);
+  else if (delta < 0) reasons.push(`장중 보정이 ${delta.toFixed(2)}점으로 소폭 부정적이다.`);
+  else reasons.push("장중 보정 영향은 거의 중립이다.");
 
   if (score >= 88) {
-  if (delta >= 0) {
-    reasons.push("실시간 보정 점수가 높고 Live 흐름도 우호적이다.");
-  } else if (delta <= -5) {
-    reasons.push("점수는 높지만 Live 보정이 크게 약화되고 있어 추가 확인이 필요하다.");
-  } else {
-    reasons.push("점수는 높지만 Live 흐름은 아직 완전히 강하지 않다.");
-  }
-  }
-  else if (score >= 70) reasons.push("실시간 보정 점수는 양호하다.");
+    if (delta >= 0) reasons.push("실시간 보정 점수가 높고 장중 흐름도 우호적이다.");
+    else if (delta <= -5) reasons.push("점수는 높지만 장중 보정이 크게 약화되고 있어 추가 확인이 필요하다.");
+    else reasons.push("점수는 높지만 장중 흐름은 아직 완전히 강하지 않다.");
+  } else if (score >= 70) reasons.push("실시간 보정 점수는 양호하다.");
   else reasons.push("실시간 보정 점수는 아직 강한 매수 판단까지 부족하다.");
 
   if (move >= 2) reasons.push("현재 상승률이 강하다. 장중 수급 확인이 붙고 있다.");
@@ -906,8 +884,16 @@ function explainReasons(item) {
   else reasons.push("실패 압력이 낮은 편이다.");
 
   if (breakout >= 55) reasons.push("돌파 압력이 양호하다.");
-  if (distribution >= 30) reasons.push("분산/매물 부담이 존재한다.");
-  if (profile) reasons.push(`Continuation Profile: ${profileKo(profile)}`);
+  if (distribution >= 30) reasons.push("매물 부담이 존재한다.");
+  if (profile) reasons.push(`상승 지속성: ${profileKo(profile)}`);
+  if (item.expectancyCurveCluster) reasons.push(`스윙 기대 구조: ${curveKo(item.expectancyCurveCluster)}`);
+  if (item.preferredAction) reasons.push(`권장 대응: ${actionKo(item.preferredAction)}`);
+
+  const ext = extensionRisk(item);
+  reasons.push(`현재 위치 판단: ${ext.label}`);
+  if (ext.reasons.length > 0) {
+    reasons.push(`추격 위험 근거: ${ext.reasons.slice(0, 3).join(" / ")}`);
+  }
 
   return reasons;
 }
@@ -924,11 +910,9 @@ function sortedRows(items) {
 
 function renderSummary(data) {
   const counts = data.counts || {};
-
   document.getElementById("summary").innerHTML = GROUPS.map(group => {
     const meta = META[group];
     const count = counts[group] || 0;
-
     return `
       <div class="summary-card ${meta.cls}">
         <div class="summary-title">${meta.title}</div>
@@ -949,7 +933,7 @@ function renderDetail(item) {
         <div class="detail-grade">대기</div>
       </div>
       <div class="detail-help">
-        왼쪽 표에서 종목을 누르면 원천 구조 점수, Live 보정 점수, 추세 지속 상태, 실패 위험을 한글로 풀어서 보여준다.
+        왼쪽 표에서 종목을 누르면 원천 구조, 장중 힘, 상승 지속 가능성, 스윙 기대 구간을 한글로 풀어서 보여준다.
       </div>
     `;
     return;
@@ -966,31 +950,40 @@ function renderDetail(item) {
     </div>
 
     <div class="detail-help">
-      이 패널은 매수 신호가 아니라 판단 근거 확인용이다. 점수가 높아도 원천 점수와 Live 보정 방향을 반드시 같이 봐야 한다.
+      매수 버튼이 아니라 판단 근거 확인용이다. 점수가 높아도 원천 구조, 장중 힘, 실패 압력, 시장 상태를 같이 봐야 한다.
     </div>
 
-    <div class="signal-banner ${signal.cls}">
-      ${signal.text}
+    <div class="signal-banner ${signal.cls}">${signal.text}</div>
+
+    <div class="position-banner ${extensionRisk(item).cls}">
+      <div class="position-title">📍 현재 위치 판단: ${esc(extensionRisk(item).label)}</div>
+      <div class="position-text">${esc(extensionRisk(item).text)}</div>
+      <div class="position-text" style="margin-top:6px;">진입 가이드: ${esc(entryGuideKo(item))}</div>
+    </div>
+
+    <div class="explain-box">
+      <div class="explain-title">한 줄 운용 해석</div>
+      <div class="top-interpretation">${esc(topInterpretation(item))}</div>
     </div>
 
     <div class="metric-grid">
       <div class="metric">
-        <div class="metric-label">실시간 보정 점수<br><span style="font-size:11px;color:#8ea0b8;">원천 구조 + Live 압력 반영</span></div>
+        <div class="metric-label">실시간 보정 점수<br><span style="font-size:11px;color:#8ea0b8;">원천 구조 + 장중 압력 반영</span></div>
         <div class="metric-value ${scoreClass(item.score)}">${num(item.score)}</div>
         <div style="margin-top:6px;font-size:12px;line-height:1.45;color:#8ea0b8;">
           원천 구조 점수: <span class="${scoreClass(item.confirmedScore)}" style="font-weight:900;">${num(item.confirmedScore)}</span><br>
-          Live 보정: <span class="${deltaClass(item)}" style="font-weight:900;">${deltaText(item)}</span>
+          장중 보정: <span class="${deltaClass(item)}" style="font-weight:900;">${deltaText(item)}</span>
         </div>
       </div>
 
       <div class="metric">
-        <div class="metric-label">Survivability Score<br><span style="font-size:11px;color:#8ea0b8;">상태 생존 가능성 점수</span></div>
+        <div class="metric-label">지속 가능성 점수<br><span style="font-size:11px;color:#8ea0b8;">상승 흐름이 버틸 가능성</span></div>
         <div class="metric-value ${scoreClass(item.survivabilityScore)}">${num(item.survivabilityScore)}</div>
         <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">${esc(profileKo(item.continuationProfile))}</div>
       </div>
 
       <div class="metric">
-        <div class="metric-label">현재 상승률<br><span style="font-size:11px;color:#8ea0b8;">↑ 높을수록 강한 수급</span></div>
+        <div class="metric-label">현재 상승률<br><span style="font-size:11px;color:#8ea0b8;">높을수록 장중 수급 강함</span></div>
         <div class="metric-value ${moveClass(item.move)}">${num(item.move)}%</div>
         <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
           ${nval(item.move) >= 3 ? "강한 장중 상승" : nval(item.move) >= 1 ? "양호한 흐름" : nval(item.move) >= -0.5 ? "보합권" : "장중 약세"}
@@ -998,7 +991,7 @@ function renderDetail(item) {
       </div>
 
       <div class="metric">
-        <div class="metric-label">실패 압력<br><span style="font-size:11px;color:#8ea0b8;">↓ 낮을수록 안정</span></div>
+        <div class="metric-label">실패 압력<br><span style="font-size:11px;color:#8ea0b8;">낮을수록 안정</span></div>
         <div class="metric-value ${failureClass(item.failurePressure)}">${num(item.failurePressure)}</div>
         <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
           ${nval(item.failurePressure) <= 35 ? "추세 안정 구간" : nval(item.failurePressure) <= 45 ? "정상 흔들림 구간" : nval(item.failurePressure) <= 55 ? "실패 위험 증가" : "붕괴 위험 높음"}
@@ -1006,7 +999,7 @@ function renderDetail(item) {
       </div>
 
       <div class="metric">
-        <div class="metric-label">돌파 압력<br><span style="font-size:11px;color:#8ea0b8;">↑ 높을수록 강함</span></div>
+        <div class="metric-label">돌파 압력<br><span style="font-size:11px;color:#8ea0b8;">높을수록 위로 밀 힘이 강함</span></div>
         <div class="metric-value">${num(item.breakoutPressure)}</div>
         <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
           ${nval(item.breakoutPressure) >= 70 ? "강한 돌파 압력" : nval(item.breakoutPressure) >= 55 ? "양호한 돌파" : nval(item.breakoutPressure) >= 40 ? "보통 수준" : "돌파 힘 부족"}
@@ -1014,10 +1007,10 @@ function renderDetail(item) {
       </div>
 
       <div class="metric">
-        <div class="metric-label">분산/매물 압력<br><span style="font-size:11px;color:#8ea0b8;">↓ 낮을수록 좋음</span></div>
+        <div class="metric-label">매물 압력<br><span style="font-size:11px;color:#8ea0b8;">낮을수록 좋음</span></div>
         <div class="metric-value">${num(item.distributionPressure)}</div>
         <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
-          ${nval(item.distributionPressure) <= 15 ? "매물 부담 낮음" : nval(item.distributionPressure) <= 30 ? "보통 수준" : nval(item.distributionPressure) <= 45 ? "매물 부담 증가" : "분산 위험 높음"}
+          ${nval(item.distributionPressure) <= 15 ? "매물 부담 낮음" : nval(item.distributionPressure) <= 30 ? "보통 수준" : nval(item.distributionPressure) <= 45 ? "매물 부담 증가" : "매물 위험 높음"}
         </div>
       </div>
     </div>
@@ -1025,48 +1018,35 @@ function renderDetail(item) {
     <div class="explain-box">
       <div class="explain-title">상태 해석</div>
       <ul class="explain-list">
-        <li>Live State: ${stateKo(item.liveMergedState)} <br><span class="neutral">${esc(item.liveMergedState)}</span></li>
-        <li>Trajectory: ${trajectoryKo(item.trajectory)} <br><span class="neutral">${esc(item.trajectory)}</span></li>
-        <li>Hierarchy: ${hierarchyKo(item.hierarchy)} <br><span class="neutral">${esc(item.hierarchy || "-")}</span></li>
-        <li>Bias: ${biasKo(item.bias)} <br><span class="neutral">${esc(item.bias || "-")}</span></li>
-        <li>Continuation Profile: ${profileKo(item.continuationProfile)} <br><span class="neutral">${esc(item.continuationProfile || "-")}</span></li>
-        <li>Expectancy Profile: ${expectancyKo(item.expectancyProfile)} <br><span class="neutral">${esc(item.expectancyProfile || "-")}</span></li>
-        <li>Risk Profile: ${riskKo(item.riskProfile)} <br><span class="neutral">${esc(item.riskProfile || "-")}</span></li>
-        <li>Survivability: ${esc(item.survivabilityInterpretation || "-")}</li>
-        <li>
-          Archetype:
-          ${archetypeKo(item.continuationArchetype)}
-          <br>
-          <span class="neutral">
-            ${esc(item.continuationArchetype || "-")}
-          </span>
-        </li>
+        <li>장중 상태: ${stateKo(item.liveMergedState)}</li>
+        <li>최근 흐름: ${trajectoryKo(item.trajectory)}</li>
+        <li>상위 구조: ${hierarchyKo(item.hierarchy)}</li>
+        <li>현재 위치: ${positionKo(item)}</li>
+        <li>진입 가이드: ${entryGuideKo(item)}</li>
+        <li>판단 편향: ${biasKo(item.bias)}</li>
+        <li>상승 지속성: ${profileKo(item.continuationProfile)}</li>
+        <li>기대 구간: ${expectancyKo(item.expectancyProfile)}</li>
+        <li>위험 성격: ${riskKo(item.riskProfile)}</li>
+        <li>상태 유형: ${archetypeKo(item.continuationArchetype)}</li>
 
-        <li>
-          Operating Mode:
-          ${operatingModeKo(item.operatingMode)}
-          <br>
-          <span class="neutral">
-            ${esc(item.operatingMode || "-")}
-          </span>
-        </li>
+        <li>고점 품질: ${highPositionKo(item.highPositionQuality)}</li>
+        <li>고점 해석: ${esc(item.positionInterpretation || "-")}</li>
+        <li>대응 가이드: ${esc(item.positionActionGuide || "-")}</li>
 
-        <li>
-          Preferred Horizon:
-          ${horizonKo(item.bestHorizon)}
-          <br>
-          <span class="neutral">
-            ${esc(item.bestHorizon || "-")}
-          </span>
-        </li>
+        <li>운용 방식: ${operatingModeKo(item.operatingMode)}</li>
+        <li>우위 시간축: ${horizonOneLine(item)}</li>
+        <li>스윙 기대 구조: ${curveKo(item.expectancyCurveCluster)}</li>
+        <li>스윙 등급: ${swingGradeKo(item.swingGrade)}</li>
+        <li>권장 대응: ${actionKo(item.preferredAction)}</li>
       </ul>
+      <div class="profile-line" style="margin-top:10px;">
+        내부값: ${esc(item.trajectory || "-")} / ${esc(item.hierarchy || "-")} / ${esc(item.expectancyCurveCluster || "-")} / ${esc(item.preferredAction || "-")}
+      </div>
     </div>
 
     <div class="explain-box">
       <div class="explain-title">왜 이렇게 판단하는가</div>
-      <ul class="explain-list">
-        ${reasons.map(r => `<li>${esc(r)}</li>`).join("")}
-      </ul>
+      <ul class="explain-list">${reasons.map(r => `<li>${esc(r)}</li>`).join("")}</ul>
     </div>
 
     <div class="verdict ${verdict.cls}">
@@ -1085,49 +1065,30 @@ function renderTable(group, items) {
       <td class="symbol">${esc(item.symbol)}</td>
       <td>
         <div><span class="score ${scoreClass(item.score)}">${num(item.score)}</span></div>
-        <div class="subline">
-          원천 ${num(item.confirmedScore)} / <span class="${deltaClass(item)}">Live ${deltaText(item)}</span>
-        </div>
+        <div class="subline">원천 ${num(item.confirmedScore)} / <span class="${deltaClass(item)}">장중 ${deltaText(item)}</span></div>
       </td>
       <td>
         <div><span class="score ${scoreClass(item.survivabilityScore)}">${num(item.survivabilityScore)}</span></div>
-        <div class="subline">${esc(item.continuationProfile || "-")}</div>
+        <div class="profile-line">${esc(profileKo(item.continuationProfile))}</div>
       </td>
       <td><span class="move ${moveClass(item.move)}">${num(item.move)}%</span></td>
-      <td><span class="pill ${meta.cls}">${esc(item.liveMergedState)}</span></td>
+      <td><span class="pill ${meta.cls}">${esc(stateKo(item.liveMergedState))}</span></td>
       <td>
-  <div>${esc(item.trajectory)}</div>
-  <div class="profile-line">
-    ${esc(item.expectancyProfile || "-")} / ${esc(item.riskProfile || "-")}
-  </div>
-  </td>
-
-  <td>
-    <div>
-      <span class="pill watch">
-        ${esc(item.bestHorizon || "-")}
-      </span>
-    </div>
-
-    <div class="profile-line">
-      ${esc(item.continuationArchetype || "-")}
-    </div>
-
-    <div class="profile-line">
-      ${esc(item.operatingMode || "-")}
-    </div>
-  </td>
-
-  <td>
-    <span class="failure ${failureClass(item.failurePressure)}">
-      ${num(item.failurePressure)}
-    </span>
-  </td>
+        <div>${esc(trajectoryKo(item.trajectory))}</div>
+        <div class="profile-line">${esc(hierarchyKo(item.hierarchy))}</div>
+        <div class="profile-line">위치: ${esc(positionKo(item))}</div>
+      </td>
+      <td>
+        <div><span class="pill watch">${esc(horizonOneLine(item))}</span></div>
+        <div class="profile-line">${esc(curveKo(item.expectancyCurveCluster))}</div>
+        <div class="profile-line">${esc(actionKo(item.preferredAction))}</div>
+      </td>
+      <td><span class="failure ${failureClass(item.failurePressure)}">${num(item.failurePressure)}</span></td>
     </tr>
   `).join("");
 
   if (!body) {
-    body = `<tr><td colspan="7" class="empty">No symbols</td></tr>`;
+    body = `<tr><td colspan="8" class="empty">No symbols</td></tr>`;
   }
 
   return `
@@ -1144,14 +1105,14 @@ function renderTable(group, items) {
         <table>
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>Score / Live Δ</th>
-              <th>Survivability</th>
-              <th>Move</th>
-              <th>Live State</th>
-             <th>Trajectory / Profile</th>
-              <th>Expectancy</th>
-              <th>Failure</th>
+              <th>종목</th>
+              <th>점수 / 장중 변화</th>
+              <th>지속 가능성</th>
+              <th>상승률</th>
+              <th>장중 상태</th>
+              <th>최근 흐름 / 상위 구조</th>
+              <th>스윙 기대 구간</th>
+              <th>실패 압력</th>
             </tr>
           </thead>
           <tbody>${body}</tbody>
@@ -1180,36 +1141,22 @@ function selectSymbol(symbol) {
   if (SELECTED_SYMBOL === symbol) {
     SELECTED_SYMBOL = null;
     renderDetail(null);
-
     if (layout) layout.classList.add("sidebar-closed");
-
-    document.querySelectorAll("tr.selected").forEach(row => {
-      row.classList.remove("selected");
-    });
-
+    document.querySelectorAll("tr.selected").forEach(row => row.classList.remove("selected"));
     return;
   }
 
   SELECTED_SYMBOL = symbol;
   renderDetail(findSymbol(symbol));
-
   if (layout) layout.classList.remove("sidebar-closed");
 
-  document.querySelectorAll("tr.selected").forEach(row => {
-    row.classList.remove("selected");
-  });
-
-  document.querySelectorAll(`tr[data-symbol="${CSS.escape(symbol)}"]`).forEach(row => {
-    row.classList.add("selected");
-  });
+  document.querySelectorAll("tr.selected").forEach(row => row.classList.remove("selected"));
+  document.querySelectorAll(`tr[data-symbol="${CSS.escape(symbol)}"]`).forEach(row => row.classList.add("selected"));
 }
 
 function renderSections(data) {
   const board = data.board || {};
-
-  document.getElementById("sections").innerHTML = GROUPS.map(group => {
-    return renderTable(group, board[group] || []);
-  }).join("");
+  document.getElementById("sections").innerHTML = GROUPS.map(group => renderTable(group, board[group] || [])).join("");
 
   if (SELECTED_SYMBOL) {
     renderDetail(findSymbol(SELECTED_SYMBOL));
@@ -1220,15 +1167,12 @@ async function loadBoard() {
   try {
     const url = JSON_PATH + "?t=" + Date.now();
     const res = await fetch(url);
-
     if (!res.ok) throw new Error("fetch failed: " + res.status);
 
     const data = await res.json();
     CURRENT_DATA = data;
-
     renderSummary(data);
     renderSections(data);
-
     document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString();
   } catch (e) {
     document.getElementById("lastUpdate").textContent = "ERROR";
@@ -1237,7 +1181,6 @@ async function loadBoard() {
 }
 
 document.getElementById("refreshSec").textContent = String(REFRESH_MS / 1000);
-
 loadBoard();
 setInterval(loadBoard, REFRESH_MS);
 </script>

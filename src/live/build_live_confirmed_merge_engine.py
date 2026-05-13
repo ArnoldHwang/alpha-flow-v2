@@ -554,15 +554,18 @@ def build_merge_row(symbol, profile, survivability_row, live_state, quote):
     survivability_score = score_survivability_bias(survivability_bias)
     trajectory_score = score_trajectory(trajectory_state)
 
-    merged_score = (
-        continuation_score
-        + survivability_score
-        + trajectory_score
-        + pressure["liveMomentumScore"]
+    confirmed_continuation_score = (
+        continuation_score + survivability_score + trajectory_score
+    )
+
+    live_adjustment_score = (
+        pressure["liveMomentumScore"]
         + pressure["breakoutPressure"] * 0.45
         - pressure["failurePressure"] * 0.65
         - pressure["distributionPressure"] * 0.35
     )
+
+    merged_score = confirmed_continuation_score + live_adjustment_score
 
     row = {
         "symbol": symbol,
@@ -570,6 +573,8 @@ def build_merge_row(symbol, profile, survivability_row, live_state, quote):
         "survivabilityBias": survivability_bias,
         "trajectoryState": trajectory_state,
         "confirmedSurvivabilityScore": round(continuation_score, 4),
+        "confirmedContinuationScore": round(confirmed_continuation_score, 4),
+        "liveAdjustmentScore": round(live_adjustment_score, 4),
         "continuationSurvivabilityScore": round(
             continuation_survivability_score,
             4,
