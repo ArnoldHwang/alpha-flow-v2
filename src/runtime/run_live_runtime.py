@@ -36,6 +36,10 @@ LIVE_STEPS = [
         "cmd": [PYTHON_EXE, "-m", "src.live.build_live_pressure_memory"],
     },
     {
+        "name": "LIVE MARKET CONTEXT",
+        "cmd": [PYTHON_EXE, "-m", "src.live.build_live_market_context"],
+    },
+    {
         "name": "LIVE DECISION HTML",
         "cmd": [PYTHON_EXE, "-m", "src.live.build_live_decision_board_html"],
     },

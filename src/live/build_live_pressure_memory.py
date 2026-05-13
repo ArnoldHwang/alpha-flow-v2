@@ -90,14 +90,19 @@ def rebuild_board(board_data, rows):
     return board_data
 
 
-def build_memory_point(row):
+def build_memory_point(row, board_generated_at):
     return {
         "time": now_iso(),
+        "boardGeneratedAt": board_generated_at,
         "symbol": safe_str(row.get("symbol")),
         # live state
-        "liveMergedState": safe_str(row.get("liveMergedState"), "LIVE_NEUTRAL"),
+        "liveMergedState": safe_str(
+            row.get("liveMergedState"),
+            "LIVE_NEUTRAL",
+        ),
         "decisionGroup": safe_str(
-            row.get("decisionGroup") or row.get("_boardGroup"), "ACTION_NEUTRAL"
+            row.get("decisionGroup") or row.get("_boardGroup"),
+            "ACTION_NEUTRAL",
         ),
         # board score
         "score": safe_float(row.get("score")),
@@ -108,11 +113,18 @@ def build_memory_point(row):
         "priceChangePct": safe_float(row.get("priceChangePct", row.get("move"))),
         "volumePressure": safe_float(row.get("volumePressure")),
         # confirmed context
-        "trajectoryType": safe_str(row.get("trajectoryType"), "NEUTRAL_TRAJECTORY"),
-        "finalHierarchyState": safe_str(
-            row.get("finalHierarchyState"), "MIXED_STRUCTURE"
+        "trajectoryType": safe_str(
+            row.get("trajectoryType"),
+            "NEUTRAL_TRAJECTORY",
         ),
-        "survivabilityBias": safe_str(row.get("survivabilityBias"), "NEUTRAL"),
+        "finalHierarchyState": safe_str(
+            row.get("finalHierarchyState"),
+            "MIXED_STRUCTURE",
+        ),
+        "survivabilityBias": safe_str(
+            row.get("survivabilityBias"),
+            "NEUTRAL",
+        ),
     }
 
 
@@ -124,6 +136,8 @@ def summarize_symbol_pressure(symbol_memory):
             "recentStatePath": "",
             "recentDecisionPath": "",
             "memoryCount": 0,
+            "recoveryPersistenceCount": 0,
+            "deteriorationPersistenceCount": 0,
         }
 
     recent = symbol_memory[-5:]
@@ -145,15 +159,37 @@ def summarize_symbol_pressure(symbol_memory):
     good_states = {
         "LIVE_RECOVERY_WATCHLIST",
         "LIVE_RECOVERY_EXTENSION_WATCH",
+        "LIVE_REACCELERATION_CONFIRMING",
+        "LIVE_CONTINUATION_HOLDING",
     }
 
     recent_bad_count = sum(1 for s in states if s in bad_states)
     recent_good_count = sum(1 for s in states if s in good_states)
 
-    if recent_bad_count >= 3:
+    # 최근 흐름 기준 연속 recovery count
+    recovery_persistence_count = 0
+    for s in reversed(states):
+        if s in good_states:
+            recovery_persistence_count += 1
+        else:
+            break
+
+    # 최근 흐름 기준 연속 deterioration count
+    deterioration_persistence_count = 0
+    for s in reversed(states):
+        if s in bad_states:
+            deterioration_persistence_count += 1
+        else:
+            break
+
+    if deterioration_persistence_count >= 3:
         trend = "DETERIORATION_PERSISTING"
-    elif recent_good_count >= 3 and delta >= 0:
+    elif recovery_persistence_count >= 3 and delta >= 0:
         trend = "RECOVERY_PRESSURE_BUILDING"
+    elif recent_bad_count >= 3:
+        trend = "DETERIORATION_CLUSTER"
+    elif recent_good_count >= 3 and delta >= 0:
+        trend = "RECOVERY_CLUSTER"
     elif delta >= 10:
         trend = "IMPROVING_PRESSURE"
     elif delta <= -10:
@@ -171,6 +207,8 @@ def summarize_symbol_pressure(symbol_memory):
         "recentStatePath": " -> ".join(states),
         "recentDecisionPath": " -> ".join(decisions),
         "memoryCount": len(symbol_memory),
+        "recoveryPersistenceCount": recovery_persistence_count,
+        "deteriorationPersistenceCount": deterioration_persistence_count,
     }
 
 
@@ -196,7 +234,19 @@ def main():
         if not symbol:
             continue
 
-        point = build_memory_point(row)
+        point = build_memory_point(
+            row,
+            board_data.get("generatedAt"),
+        )
+
+        existing = memory.get(symbol, [])
+
+        # 같은 board generatedAt이면 중복 저장 금지
+        if existing:
+            last_point = existing[-1]
+
+            if last_point.get("boardGeneratedAt") == point.get("boardGeneratedAt"):
+                continue
 
         if symbol not in memory:
             memory[symbol] = []

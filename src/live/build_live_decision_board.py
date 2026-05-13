@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from datetime import datetime, timezone
 from src.live.build_live_expectancy_engine import attach_live_expectancy
+from src.live.build_live_position_engine import attach_live_position_engine
+from src.live.build_live_expectancy_horizon import attach_live_expectancy_horizon
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -280,6 +282,18 @@ def compact_item(row):
         "positionActionGuide": row.get("positionActionGuide"),
         "highPositionMatched": row.get("highPositionMatched"),
         "liveAdjustmentScore": live_adjustment_score,
+        # High position operating interpretation
+        "highPositionCategory": row.get("highPositionCategory"),
+        "entryTimingState": row.get("entryTimingState"),
+        "continuationStage": row.get("continuationStage"),
+        "shortTermExpectancyScore": row.get("shortTermExpectancyScore"),
+        "swingExpectancyScore": row.get("swingExpectancyScore"),
+        "midTermExpectancyScore": row.get("midTermExpectancyScore"),
+        "shortTermExpectancyGrade": row.get("shortTermExpectancyGrade"),
+        "swingExpectancyGrade": row.get("swingExpectancyGrade"),
+        "midTermExpectancyGrade": row.get("midTermExpectancyGrade"),
+        "dominantExpectancyHorizon": row.get("dominantExpectancyHorizon"),
+        "dominantExpectancyText": row.get("dominantExpectancyText"),
     }
 
 
@@ -315,6 +329,8 @@ def main():
 
     # historical expectancy matrix 연결
     items = attach_live_expectancy(items)
+    items = attach_live_position_engine(items)
+    items = attach_live_expectancy_horizon(items)
 
     board, counts = build_board(items)
 

@@ -250,7 +250,7 @@ def main():
     .metric { background: rgba(7,11,18,0.56); border: 1px solid rgba(32,48,73,0.72); border-radius: 14px; padding: 12px; }
     .metric-label { color: var(--muted); font-size: 11px; font-weight: 800; margin-bottom: 7px; }
     .metric-value { font-size: 18px; font-weight: 950; }
-    .explain-box { margin-top: 12px; background: rgba(7,11,18,0.56); border: 1px solid rgba(32,48,73,0.72); border-radius: 16px; padding: 14px; }
+    .explain-box { margin:12px 0; background: rgba(7,11,18,0.56); border: 1px solid rgba(32,48,73,0.72); border-radius: 16px; padding: 14px; }
     .explain-title { font-size: 14px; font-weight: 950; margin-bottom: 8px; }
     .explain-list { margin: 0; padding-left: 18px; color: var(--text); font-size: 13px; line-height: 1.65; }
     .top-interpretation { font-size: 13px; line-height: 1.65; color: var(--text); }
@@ -292,6 +292,27 @@ def main():
       .summary-grid { grid-template-columns: 1fr; }
       .metric-grid { grid-template-columns: 1fr; }
     }
+        .market-status-bar {
+      margin-bottom: 18px;
+      padding: 14px 18px;
+      border-radius: 16px;
+      background: rgba(13,20,32,0.78);
+      border: 1px solid rgba(32,48,73,0.9);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+    }
+
+    .market-status-main {
+      font-size: 16px;
+      font-weight: 950;
+      color: var(--text);
+    }
+
+    .market-status-sub {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
   </style>
 </head>
 <body>
@@ -307,6 +328,7 @@ def main():
         <div class="badge">최근 업데이트: <span id="lastUpdate">-</span></div>
       </div>
     </div>
+    <div id="marketStatusBar" class="market-status-bar"></div>
 
     <div id="summary" class="summary-grid"></div>
 
@@ -340,7 +362,7 @@ const GROUPS = [
 ];
 
 const META = {
-  ACTION_CONFIRMING: { title: "🔥 강한 확인", desc: "장중 힘이 붙은 우선 감시 후보", cls: "confirming" },
+  ACTION_CONFIRMING: { title: "🔥 장중 강세 유지", desc: "장중 힘이 붙은 우선 감시 후보", cls: "confirming" },
   ACTION_WATCH: { title: "🟢 관찰", desc: "상승 지속 가능성을 계속 볼 후보", cls: "watch" },
   ACTION_CAUTION: { title: "🟠 주의", desc: "회복은 있으나 구조 부담이 있는 후보", cls: "caution" },
   ACTION_RISK_OFF: { title: "🔴 위험 회피", desc: "장중 실패·매물·하락 전환 위험 후보", cls: "risk" }
@@ -643,6 +665,215 @@ function highPositionKo(v) {
 
   return "혼합형 고점 구조";
 }
+function highPositionCategoryKo(v) {
+  const s = String(v || "");
+
+  if (s === "INSTITUTIONAL_HIGH_CONTINUATION") {
+    return "기관성 continuation이 살아있는 높은 위치";
+  }
+
+  if (s === "HEALTHY_BUT_EXTENDED_HIGH") {
+    return "좋지만 이미 많이 오른 continuation";
+  }
+
+  if (s === "RECOVERY_REACCELERATION_HIGH") {
+    return "조정 후 다시 살아나는 재가속 구조";
+  }
+
+  if (s === "TACTICAL_FAST_SWING_HIGH") {
+    return "짧게 강하게 움직이는 전술형 고점";
+  }
+
+  if (s === "DISTRIBUTION_HIGH_RISK") {
+    return "매물 부담이 증가하는 위험 구간";
+  }
+
+  if (s === "TERMINAL_OR_DANGEROUS_HIGH") {
+    return "후반부 exhaustion 위험이 큰 고점";
+  }
+
+  if (s === "UNPROVEN_POSITION") {
+    return "아직 검증 부족한 위치";
+  }
+
+  return "혼합형 continuation 위치";
+}
+
+
+function entryTimingKo(v) {
+  const s = String(v || "");
+
+  if (s === "TREND_FOLLOW_WITH_RISK_CONTROL") {
+    return "추세 따라가되 손절 기준 반드시 필요";
+  }
+
+  if (s === "WATCH_REACCELERATION_CONFIRMATION") {
+    return "재가속 확인 후 접근";
+  }
+
+  if (s === "SMALL_SIZE_OR_PULLBACK_ONLY") {
+    return "추격보다 눌림/소액 접근이 유리";
+  }
+
+  if (s === "SHORT_TERM_ONLY") {
+    return "짧은 단기 대응만 적합";
+  }
+
+  if (s === "DO_NOT_CHASE") {
+    return "지금 추격은 위험";
+  }
+
+  if (s === "DO_NOT_CHASE_SPIKE") {
+    return "급등 추격 금지";
+  }
+
+  if (s === "WAIT_FOR_PULLBACK_RECLAIM") {
+    return "눌림 후 회복 여부 확인 필요";
+  }
+
+  if (s === "RESEARCH_ONLY") {
+    return "참고용 관찰 상태";
+  }
+
+  return "추가 확인 필요";
+}
+
+
+function continuationStageKo(v) {
+  const s = String(v || "");
+
+  if (s === "HEALTHY_CONTINUATION") {
+    return "건강한 continuation 진행 구간";
+  }
+
+  if (s === "REACCELERATION_PHASE") {
+    return "재가속 초기 단계";
+  }
+
+  if (s === "EXTENDED_CONTINUATION") {
+    return "상당히 진행된 continuation";
+  }
+
+  if (s === "TACTICAL_MOMENTUM_PHASE") {
+    return "짧은 momentum 대응 구간";
+  }
+
+  if (s === "DISTRIBUTION_PHASE") {
+    return "distribution 증가 단계";
+  }
+
+  if (s === "LATE_STAGE_EXHAUSTION") {
+    return "후반부 exhaustion 단계";
+  }
+
+  if (s === "UNCONFIRMED_STRUCTURE") {
+    return "아직 확정 부족";
+  }
+
+  return "중간 continuation 단계";
+}
+function pressureTrendKo(v) {
+  const s = String(v || "");
+
+  if (s === "RECOVERY_PRESSURE_BUILDING") {
+    return "회복 압력이 계속 강화되는 중";
+  }
+
+  if (s === "RECOVERY_CLUSTER") {
+    return "최근 recovery 흐름이 반복되는 중";
+  }
+
+  if (s === "DETERIORATION_PERSISTING") {
+    return "약화 흐름이 계속 누적되는 중";
+  }
+
+  if (s === "DETERIORATION_CLUSTER") {
+    return "최근 deterioration 흐름이 반복되는 중";
+  }
+
+  if (s === "IMPROVING_PRESSURE") {
+    return "실시간 압력이 빠르게 좋아지는 중";
+  }
+
+  if (s === "DETERIORATING_PRESSURE") {
+    return "실시간 압력이 빠르게 악화되는 중";
+  }
+
+  if (s === "PERSISTENT_STRONG_PRESSURE") {
+    return "강한 장중 압력이 유지되는 상태";
+  }
+
+  if (s === "PERSISTENT_WEAK_PRESSURE") {
+    return "약한 장중 압력이 계속 유지되는 상태";
+  }
+
+  if (s === "STABLE_PRESSURE") {
+    return "장중 압력 변화가 크지 않은 상태";
+  }
+
+  return "실시간 압력 해석 부족";
+}
+function liveStateShortKo(v) {
+  const s = String(v || "");
+
+  if (s === "LIVE_REACCELERATION_CONFIRMING") {
+    return "재가속 확인";
+  }
+
+  if (s === "LIVE_RECOVERY_EXTENSION_WATCH") {
+    return "회복 후 확장";
+  }
+
+  if (s === "LIVE_RECOVERY_WATCHLIST") {
+    return "회복 관찰";
+  }
+
+  if (s === "LIVE_CONTINUATION_HOLDING") {
+    return "상승 유지";
+  }
+
+  if (s === "LIVE_RECOVERY_UNDER_PRESSURE") {
+    return "회복 약화";
+  }
+
+  if (s === "LIVE_RECOVERY_FAILING_INTRADAY") {
+    return "회복 실패";
+  }
+
+  if (s === "LIVE_DISTRIBUTION_CONTINUATION") {
+    return "매물 증가";
+  }
+
+  if (s === "LIVE_BREAKDOWN_CONFIRMING") {
+    return "하락 전환";
+  }
+
+  return "중립";
+}
+
+function expectancyGradeKo(v) {
+  const s = String(v || "");
+
+  if (s === "VERY_HIGH") return "매우 높음";
+  if (s === "HIGH") return "높음";
+  if (s === "MEDIUM") return "보통";
+  if (s === "LOW") return "낮음";
+  if (s === "VERY_LOW") return "매우 낮음";
+
+  return "-";
+}
+function recentStatePathKo(v) {
+  const raw = String(v || "");
+
+  if (!raw) {
+    return "-";
+  }
+
+  return raw
+    .split(" -> ")
+    .map(x => liveStateShortKo(x))
+    .join(" → ");
+}
 function horizonOneLine(item) {
   const h = String(item.bestSwingWindow || item.bestHorizon || "");
   const curve = String(item.expectancyCurveCluster || "");
@@ -761,7 +992,65 @@ function positionKo(item) {
   const e = extensionRisk(item);
   return e.label;
 }
+function marketEnvironmentKo(v) {
+  const s = String(v || "");
 
+  if (s === "CONTINUATION_FRIENDLY_ENVIRONMENT") {
+    return "상승 지속 종목이 살아남기 좋은 시장";
+  }
+
+  if (s === "SELECTIVE_CONTINUATION_ENVIRONMENT") {
+    return "강한 종목만 선별적으로 살아남는 시장";
+  }
+
+  if (s === "MIXED_MARKET_ENVIRONMENT") {
+    return "상승/약세 흐름이 섞여 있는 혼합 시장";
+  }
+
+  if (s === "CONTINUATION_UNFRIENDLY_ENVIRONMENT") {
+    return "상승 지속 구조에 불리한 시장";
+  }
+
+  return "시장 환경 해석 부족";
+}
+
+
+function marketPressureKo(v) {
+  const s = String(v || "");
+
+  if (s === "MARKET_RECOVERY_PRESSURE_BUILDING") {
+    return "시장 전체 recovery 압력이 강화되는 중";
+  }
+
+  if (s === "MARKET_STABLE_PRESSURE") {
+    return "시장 압력 변화가 크지 않은 상태";
+  }
+
+  if (s === "MARKET_UNDER_PRESSURE") {
+    return "시장 전체 실패 압력이 증가하는 상태";
+  }
+
+  return "시장 압력 해석 부족";
+}
+
+
+function marketRiskKo(v) {
+  const s = String(v || "");
+
+  if (s === "RISK_ON_CONTINUATION_ENVIRONMENT") {
+    return "growth continuation에 우호적인 위험 선호 환경";
+  }
+
+  if (s === "NEUTRAL_RISK_ENVIRONMENT") {
+    return "중립적인 위험 환경";
+  }
+
+  if (s === "RISK_OFF_OR_DISTRIBUTION_ENVIRONMENT") {
+    return "risk-off 또는 distribution 위험 환경";
+  }
+
+  return "시장 위험 해석 부족";
+}
 function entryGuideKo(item) {
   const e = extensionRisk(item);
   const action = String(item.preferredAction || "");
@@ -907,12 +1196,28 @@ function sortedRows(items) {
     return (scoreB - scoreA) || (moveB - moveA);
   }).slice(0, MAX_ROWS);
 }
+function renderMarketStatus(data) {
+  const market = data.marketContext || {};
 
+  document.getElementById("marketStatusBar").innerHTML = `
+    <div class="market-status-main">
+      현재 감시 종목 상태: ${esc(marketEnvironmentKo(market.marketContinuationEnvironment))}
+    </div>
+    <div class="market-status-sub">
+      ${esc(marketPressureKo(market.marketPressureState))}
+      ·
+      ${esc(marketRiskKo(market.riskEnvironment))}
+      · 점수 ${esc(market.marketContextScore || "-")}
+    </div>
+  `;
+}
 function renderSummary(data) {
   const counts = data.counts || {};
+
   document.getElementById("summary").innerHTML = GROUPS.map(group => {
     const meta = META[group];
     const count = counts[group] || 0;
+
     return `
       <div class="summary-card ${meta.cls}">
         <div class="summary-title">${meta.title}</div>
@@ -968,7 +1273,7 @@ function renderDetail(item) {
 
     <div class="metric-grid">
       <div class="metric">
-        <div class="metric-label">실시간 보정 점수<br><span style="font-size:11px;color:#8ea0b8;">원천 구조 + 장중 압력 반영</span></div>
+        <div class="metric-label">구조 + 장중 강도 점수<br><span style="font-size:11px;color:#8ea0b8;">현재 구조와 장중 흐름의 강도</span></div>
         <div class="metric-value ${scoreClass(item.score)}">${num(item.score)}</div>
         <div style="margin-top:6px;font-size:12px;line-height:1.45;color:#8ea0b8;">
           원천 구조 점수: <span class="${scoreClass(item.confirmedScore)}" style="font-weight:900;">${num(item.confirmedScore)}</span><br>
@@ -980,6 +1285,39 @@ function renderDetail(item) {
         <div class="metric-label">지속 가능성 점수<br><span style="font-size:11px;color:#8ea0b8;">상승 흐름이 버틸 가능성</span></div>
         <div class="metric-value ${scoreClass(item.survivabilityScore)}">${num(item.survivabilityScore)}</div>
         <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">${esc(profileKo(item.continuationProfile))}</div>
+      </div>
+            <div class="metric">
+        <div class="metric-label">실전 진입 판단<br><span style="font-size:11px;color:#8ea0b8;">현재 위치 기준 대응 해석</span></div>
+        <div class="metric-value" style="font-size:18px;">
+          ${esc(positionKo(item))}
+        </div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${esc(entryGuideKo(item))}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">단기 기대값<br><span style="font-size:11px;color:#8ea0b8;">1~3일 단기 강세 흐름 기대</span></div>
+        <div class="metric-value ${scoreClass(item.shortTermExpectancyScore)}">${num(item.shortTermExpectancyScore)}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${esc(expectancyGradeKo(item.shortTermExpectancyGrade))}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">스윙 기대값<br><span style="font-size:11px;color:#8ea0b8;">3~20일 상승 지속 기대</span></div>
+        <div class="metric-value ${scoreClass(item.swingExpectancyScore)}">${num(item.swingExpectancyScore)}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${esc(expectancyGradeKo(item.swingExpectancyGrade))}
+        </div>
+      </div>
+
+      <div class="metric">
+        <div class="metric-label">중기 지속 기대값<br><span style="font-size:11px;color:#8ea0b8;">20~60일 중기 생존 가능성 기대</span></div>
+        <div class="metric-value ${scoreClass(item.midTermExpectancyScore)}">${num(item.midTermExpectancyScore)}</div>
+        <div style="margin-top:6px;font-size:12px;color:#8ea0b8;line-height:1.4;">
+          ${esc(expectancyGradeKo(item.midTermExpectancyGrade))}
+        </div>
       </div>
 
       <div class="metric">
@@ -1030,6 +1368,13 @@ function renderDetail(item) {
         <li>상태 유형: ${archetypeKo(item.continuationArchetype)}</li>
 
         <li>고점 품질: ${highPositionKo(item.highPositionQuality)}</li>
+        <li>고점 위치 유형: ${highPositionCategoryKo(item.highPositionCategory)}</li>
+        <li>진입 타이밍: ${entryTimingKo(item.entryTimingState)}</li>
+        <li>현재 continuation 단계: ${continuationStageKo(item.continuationStage)}</li>
+        <li>실시간 압력 흐름: ${pressureTrendKo(item.livePressureTrend)}</li>
+        <li>회복 흐름: ${item.recoveryPersistenceCount || 0}</li>
+        <li>약화 흐름: ${item.deteriorationPersistenceCount || 0}</li>
+        <li>최근 상태 흐름: ${esc(recentStatePathKo(item.recentStatePath))}</li>
         <li>고점 해석: ${esc(item.positionInterpretation || "-")}</li>
         <li>대응 가이드: ${esc(item.positionActionGuide || "-")}</li>
 
@@ -1171,6 +1516,7 @@ async function loadBoard() {
 
     const data = await res.json();
     CURRENT_DATA = data;
+    renderMarketStatus(data);
     renderSummary(data);
     renderSections(data);
     document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString();
