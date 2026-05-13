@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from datetime import datetime, timezone
+from src.live.build_live_expectancy_engine import attach_live_expectancy
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -233,10 +234,27 @@ def compact_item(row):
         "expectancyProfile": row.get("expectancyProfile"),
         "continuationProfile": row.get("continuationProfile"),
         "survivabilityInterpretation": row.get("survivabilityInterpretation"),
+        # Continuation archetype
+        "continuationArchetype": row.get("continuationArchetype"),
+        "archetypeBias": row.get("archetypeBias"),
+        "preferredTimeframe": row.get("preferredTimeframe"),
+        "archetypeRisk": row.get("archetypeRisk"),
+        "archetypeInterpretation": row.get("archetypeInterpretation"),
         "move": row.get("liveMove"),
         "breakoutPressure": row.get("breakoutPressure"),
         "failurePressure": row.get("failurePressure"),
         "distributionPressure": row.get("distributionPressure"),
+        # Historical state expectancy
+        "bestHorizon": row.get("bestHorizon"),
+        "expectancyGrade": row.get("expectancyGrade"),
+        "operatingMode": row.get("operatingMode"),
+        "expectancyScore": row.get("expectancyScore"),
+        "sampleQuality": row.get("sampleQuality"),
+        "historicalWinRate60d": row.get("historicalWinRate60d"),
+        "historicalAvgReturn60d": row.get("historicalAvgReturn60d"),
+        "historicalSurvivalRate60d": row.get("historicalSurvivalRate60d"),
+        "historicalRewardRisk10d": row.get("historicalRewardRisk10d"),
+        "expectancyMatched": row.get("expectancyMatched"),
     }
 
 
@@ -269,6 +287,9 @@ def main():
 
     data = load_json(INPUT_PATH)
     items = data.get("items", [])
+
+    # historical expectancy matrix 연결
+    items = attach_live_expectancy(items)
 
     board, counts = build_board(items)
 

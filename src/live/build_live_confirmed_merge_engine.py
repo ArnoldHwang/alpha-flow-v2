@@ -12,6 +12,7 @@ SURVIVABILITY_PATH = (
 
 # V2 survivability engine output
 SURVIVABILITY_DIR = ROOT / "data" / "survivability"
+ARCHETYPE_DIR = ROOT / "data" / "survivability_archetypes"
 
 LIVE_STATE_PATH = ROOT / "data" / "live_states" / "_live_state_summary.json"
 LIVE_QUOTES_PATH = ROOT / "data" / "live_feed" / "live_quotes.json"
@@ -114,6 +115,38 @@ def load_latest_survivability_records():
             continue
 
         symbol = latest.get("symbol") or path.stem
+        # =====================================
+        # Continuation archetype merge
+        # survivability_archetypes/{SYMBOL}.json 최신 row 연결
+        # =====================================
+
+        archetype_path = ARCHETYPE_DIR / f"{symbol}.json"
+
+        if archetype_path.exists():
+            archetype_records = load_json(archetype_path, [])
+
+            if (
+                isinstance(archetype_records, list)
+                and archetype_records
+                and isinstance(archetype_records[-1], dict)
+            ):
+                latest_archetype = archetype_records[-1]
+
+                latest["continuationArchetype"] = latest_archetype.get(
+                    "continuationArchetype"
+                )
+
+                latest["archetypeBias"] = latest_archetype.get("archetypeBias")
+
+                latest["preferredTimeframe"] = latest_archetype.get(
+                    "preferredTimeframe"
+                )
+
+                latest["archetypeRisk"] = latest_archetype.get("archetypeRisk")
+
+                latest["archetypeInterpretation"] = latest_archetype.get(
+                    "archetypeInterpretation"
+                )
 
         if symbol:
             result[str(symbol)] = latest
@@ -492,7 +525,30 @@ def build_merge_row(symbol, profile, survivability_row, live_state, quote):
         get_any(survivability_row, ["survivabilityInterpretation"], None),
         None,
     )
+    continuation_archetype = safe_str(
+        get_any(survivability_row, ["continuationArchetype"], None),
+        None,
+    )
 
+    archetype_bias = safe_str(
+        get_any(survivability_row, ["archetypeBias"], None),
+        None,
+    )
+
+    preferred_timeframe = safe_str(
+        get_any(survivability_row, ["preferredTimeframe"], None),
+        None,
+    )
+
+    archetype_risk = safe_str(
+        get_any(survivability_row, ["archetypeRisk"], None),
+        None,
+    )
+
+    archetype_interpretation = safe_str(
+        get_any(survivability_row, ["archetypeInterpretation"], None),
+        None,
+    )
     pressure = classify_live_pressure(live_state, quote)
 
     survivability_score = score_survivability_bias(survivability_bias)
@@ -523,6 +579,11 @@ def build_merge_row(symbol, profile, survivability_row, live_state, quote):
         "expectancyProfile": expectancy_profile,
         "continuationProfile": continuation_profile,
         "survivabilityInterpretation": survivability_interpretation,
+        "continuationArchetype": continuation_archetype,
+        "archetypeBias": archetype_bias,
+        "preferredTimeframe": preferred_timeframe,
+        "archetypeRisk": archetype_risk,
+        "archetypeInterpretation": archetype_interpretation,
         "survivabilityBiasScore": round(survivability_score, 4),
         "trajectoryScore": round(trajectory_score, 4),
         **pressure,

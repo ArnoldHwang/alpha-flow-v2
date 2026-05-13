@@ -72,6 +72,22 @@ STEPS = [
         "cmd": [sys.executable, "src/live/build_live_confirmed_merge_engine.py"],
         "required": True,
     },
+    {
+        "name": "BUILD CONTINUATION ARCHETYPE ENGINE",
+        "cmd": [
+            sys.executable,
+            "src/survivability/build_continuation_archetype_engine.py",
+        ],
+        "required": True,
+    },
+    {
+        "name": "BUILD STATE EXPECTANCY MATRIX",
+        "cmd": [
+            sys.executable,
+            "src/research/build_state_expectancy_matrix.py",
+        ],
+        "required": True,
+    },
 ]
 
 
@@ -166,6 +182,8 @@ def main() -> None:
     print("- data/live_states/_live_confirmed_merge_summary.json")
     print("- results/research/transition_expectancy_all.csv")
     print("- results/research/state_transition_matrix_all.csv")
+    print("- data/survivability_archetypes/_archetype_summary.json")
+    print("- data/research/state_expectancy_matrix.json")
 
 
 if __name__ == "__main__":

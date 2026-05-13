@@ -21,23 +21,23 @@ PYTHON_EXE = str(VENV_PYTHON) if VENV_PYTHON.exists() else sys.executable
 LIVE_STEPS = [
     {
         "name": "LIVE PRICE FEED",
-        "cmd": [PYTHON_EXE, "src/live/live_price_feed.py"],
+        "cmd": [PYTHON_EXE, "-m", "src.live.live_price_feed"],
     },
     {
         "name": "LIVE CONFIRMED MERGE",
-        "cmd": [PYTHON_EXE, "src/live/build_live_confirmed_merge_engine.py"],
+        "cmd": [PYTHON_EXE, "-m", "src.live.build_live_confirmed_merge_engine"],
     },
     {
         "name": "LIVE DECISION BOARD",
-        "cmd": [PYTHON_EXE, "src/live/build_live_decision_board.py"],
+        "cmd": [PYTHON_EXE, "-m", "src.live.build_live_decision_board"],
     },
     {
         "name": "LIVE PRESSURE MEMORY",
-        "cmd": [PYTHON_EXE, "src/live/build_live_pressure_memory.py"],
+        "cmd": [PYTHON_EXE, "-m", "src.live.build_live_pressure_memory"],
     },
     {
         "name": "LIVE DECISION HTML",
-        "cmd": [PYTHON_EXE, "src/live/build_live_decision_board_html.py"],
+        "cmd": [PYTHON_EXE, "-m", "src.live.build_live_decision_board_html"],
     },
 ]
 

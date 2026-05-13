@@ -122,7 +122,13 @@ def main():
       gap: 14px;
       margin-bottom: 22px;
     }
+    .layout.sidebar-closed {
+      grid-template-columns: 1fr;
+    }
 
+    .layout.sidebar-closed .detail-panel {
+      display: none;
+    }
     .summary-card {
       border: 1px solid var(--border);
       border-radius: 18px;
@@ -437,7 +443,7 @@ def main():
 
     <div id="summary" class="summary-grid"></div>
 
-    <div class="layout">
+    <div id="mainLayout" class="layout sidebar-closed">
       <div id="sections"></div>
       <aside id="detailPanel" class="detail-panel">
         <div class="detail-title">
@@ -604,6 +610,148 @@ function expectancyKo(v) {
   if (s === "MIXED_EXPECTANCY") return "시간축별 기대값이 섞인 상태";
   return "expectancy profile 해석 부족";
 }
+function archetypeKo(v) {
+  const s = String(v || "");
+
+  if (s === "STRUCTURAL_CONTINUATION") {
+    return "천천히 오래 살아남는 continuation 구조";
+  }
+
+  if (s === "RECOVERY_WATCH") {
+    return "회복 초입 감시 구조. 아직 확정은 아니지만 재가속 가능성을 관찰하는 상태";
+  }
+
+  if (s === "RECOVERY_REACCELERATION") {
+    return "조정 이후 다시 살아나는 재가속 구조";
+  }
+
+  if (s === "LOW_VOLATILITY_BASE") {
+    return "조용한 기관 축적형 base 구조";
+  }
+
+  if (s === "DISTRIBUTION_PRESSURE") {
+    return "매물 압력이 증가하는 continuation";
+  }
+
+  if (s === "DISTRIBUTION_BREAKDOWN") {
+    return "실제 breakdown 위험 continuation";
+  }
+
+  if (s === "SLOW_DRIFT_CONTINUATION") {
+    return "천천히 우상향 지속되는 continuation";
+  }
+
+  if (s === "INSTITUTIONAL_DRIFT") {
+  return "기관성 느린 우상향 continuation 구조";
+  }
+
+  if (s === "ACCELERATING_CONTINUATION") {
+    return "상승 가속이 붙는 continuation 구조";
+  }
+
+  if (s === "TACTICAL_PARABOLIC_CONTINUATION") {
+    return "후반부 고위험 고수익 continuation 구조";
+  }
+
+  if (s === "LATE_STAGE_CONTINUATION") {
+    return "후반부 continuation. 수익 가능성은 있지만 리스크 관리가 중요한 상태";
+  }
+
+
+  return "archetype 해석 부족";
+}
+
+function operatingModeKo(v) {
+  const s = String(v || "");
+
+  if (s === "LONG_SURVIVABILITY_CONTINUATION") {
+    return "30~60일 continuation 생존 기대값 중심";
+  }
+
+  if (s === "MIDTERM_CONTINUATION") {
+    return "중기 continuation 기대값";
+  }
+
+  if (s === "SHORT_TERM_BREAKOUT") {
+    return "단기 breakout 기대값";
+  }
+
+  if (s === "TACTICAL_MOMENTUM") {
+    return "짧은 momentum tactical 구조";
+  }
+
+  if (s === "NEGATIVE_EXPECTANCY") {
+    return "기대값이 불리한 상태";
+  }
+
+  return "operating mode 해석 부족";
+}
+
+function horizonKo(v) {
+  const s = String(v || "");
+
+  if (s === "1d") return "초단기";
+  if (s === "3d") return "단기";
+  if (s === "5d") return "스윙 단기";
+  if (s === "10d") return "스윙";
+  if (s === "20d") return "중기";
+  if (s === "30d") return "중기 continuation";
+  if (s === "60d") return "장기 continuation";
+
+  return "시간축 해석 부족";
+}
+
+function hierarchyKo(v) {
+  const s = String(v || "");
+
+  if (s === "ELITE_CONTINUATION_STRUCTURE") {
+    return "상위 timeframe까지 맞는 매우 강한 continuation 구조";
+  }
+
+  if (s === "CONSTRUCTIVE_PAUSE_STRUCTURE") {
+    return "좋은 추세 안에서 쉬어가는 건전한 눌림 구조";
+  }
+
+  if (s === "HEALTHY_BUT_MONTHLY_EXTENDED") {
+    return "구조는 좋지만 월봉 확장 부담이 있는 상태";
+  }
+
+  if (s === "AGING_CONTINUATION_STRUCTURE") {
+    return "오래 진행된 continuation. 끝난 것은 아니지만 피로도 확인 필요";
+  }
+
+  if (s === "LATE_STAGE_REACCELERATION") {
+    return "후반부에서 다시 힘이 붙는 재가속 구조";
+  }
+
+  if (s === "TERMINAL_STRUCTURE_RISK") {
+    return "후반부 과열/붕괴 위험이 섞인 구조";
+  }
+
+  if (s === "DETERIORATING_STRUCTURE") {
+    return "구조가 약해지고 있는 위험 상태";
+  }
+
+  if (s === "MIXED_STRUCTURE") {
+    return "좋은 신호와 위험 신호가 섞인 중립 구조";
+  }
+
+  return "상위 구조 해석 부족";
+}
+
+function biasKo(v) {
+  const s = String(v || "");
+
+  if (s === "HIGH") return "continuation 생존 가능성이 높게 평가됨";
+  if (s === "GOOD") return "continuation 생존 가능성이 양호함";
+  if (s === "GOOD_BUT_EXTENSION_RISK") return "좋지만 확장 부담이 있어 추격 주의";
+  if (s === "NEUTRAL") return "중립. 추가 확인 필요";
+  if (s === "CAUTION") return "주의. 구조 약화 가능성 있음";
+  if (s === "AVOID") return "회피 우선. 실패 위험이 큼";
+  if (s === "TACTICAL_ONLY") return "짧은 전술 매매만 가능한 상태";
+
+  return "bias 해석 부족";
+}
 
 function trendKo(v) {
   const s = String(v || "");
@@ -736,7 +884,15 @@ function explainReasons(item) {
   else if (delta < 0) reasons.push(`Live 보정이 ${delta.toFixed(2)}점으로 소폭 부정적이다.`);
   else reasons.push("Live 보정 영향은 거의 중립이다.");
 
-  if (score >= 88) reasons.push("실시간 보정 점수가 높다. 오늘 집중 감시할 만하다.");
+  if (score >= 88) {
+  if (delta >= 0) {
+    reasons.push("실시간 보정 점수가 높고 Live 흐름도 우호적이다.");
+  } else if (delta <= -5) {
+    reasons.push("점수는 높지만 Live 보정이 크게 약화되고 있어 추가 확인이 필요하다.");
+  } else {
+    reasons.push("점수는 높지만 Live 흐름은 아직 완전히 강하지 않다.");
+  }
+  }
   else if (score >= 70) reasons.push("실시간 보정 점수는 양호하다.");
   else reasons.push("실시간 보정 점수는 아직 강한 매수 판단까지 부족하다.");
 
@@ -871,12 +1027,38 @@ function renderDetail(item) {
       <ul class="explain-list">
         <li>Live State: ${stateKo(item.liveMergedState)} <br><span class="neutral">${esc(item.liveMergedState)}</span></li>
         <li>Trajectory: ${trajectoryKo(item.trajectory)} <br><span class="neutral">${esc(item.trajectory)}</span></li>
-        <li>Hierarchy: ${esc(item.hierarchy || "-")}</li>
-        <li>Bias: ${esc(item.bias || "-")}</li>
+        <li>Hierarchy: ${hierarchyKo(item.hierarchy)} <br><span class="neutral">${esc(item.hierarchy || "-")}</span></li>
+        <li>Bias: ${biasKo(item.bias)} <br><span class="neutral">${esc(item.bias || "-")}</span></li>
         <li>Continuation Profile: ${profileKo(item.continuationProfile)} <br><span class="neutral">${esc(item.continuationProfile || "-")}</span></li>
         <li>Expectancy Profile: ${expectancyKo(item.expectancyProfile)} <br><span class="neutral">${esc(item.expectancyProfile || "-")}</span></li>
         <li>Risk Profile: ${riskKo(item.riskProfile)} <br><span class="neutral">${esc(item.riskProfile || "-")}</span></li>
         <li>Survivability: ${esc(item.survivabilityInterpretation || "-")}</li>
+        <li>
+          Archetype:
+          ${archetypeKo(item.continuationArchetype)}
+          <br>
+          <span class="neutral">
+            ${esc(item.continuationArchetype || "-")}
+          </span>
+        </li>
+
+        <li>
+          Operating Mode:
+          ${operatingModeKo(item.operatingMode)}
+          <br>
+          <span class="neutral">
+            ${esc(item.operatingMode || "-")}
+          </span>
+        </li>
+
+        <li>
+          Preferred Horizon:
+          ${horizonKo(item.bestHorizon)}
+          <br>
+          <span class="neutral">
+            ${esc(item.bestHorizon || "-")}
+          </span>
+        </li>
       </ul>
     </div>
 
@@ -914,10 +1096,33 @@ function renderTable(group, items) {
       <td><span class="move ${moveClass(item.move)}">${num(item.move)}%</span></td>
       <td><span class="pill ${meta.cls}">${esc(item.liveMergedState)}</span></td>
       <td>
-        <div>${esc(item.trajectory)}</div>
-        <div class="profile-line">${esc(item.expectancyProfile || "-")} / ${esc(item.riskProfile || "-")}</div>
-      </td>
-      <td><span class="failure ${failureClass(item.failurePressure)}">${num(item.failurePressure)}</span></td>
+  <div>${esc(item.trajectory)}</div>
+  <div class="profile-line">
+    ${esc(item.expectancyProfile || "-")} / ${esc(item.riskProfile || "-")}
+  </div>
+  </td>
+
+  <td>
+    <div>
+      <span class="pill watch">
+        ${esc(item.bestHorizon || "-")}
+      </span>
+    </div>
+
+    <div class="profile-line">
+      ${esc(item.continuationArchetype || "-")}
+    </div>
+
+    <div class="profile-line">
+      ${esc(item.operatingMode || "-")}
+    </div>
+  </td>
+
+  <td>
+    <span class="failure ${failureClass(item.failurePressure)}">
+      ${num(item.failurePressure)}
+    </span>
+  </td>
     </tr>
   `).join("");
 
@@ -944,7 +1149,8 @@ function renderTable(group, items) {
               <th>Survivability</th>
               <th>Move</th>
               <th>Live State</th>
-              <th>Trajectory / Profile</th>
+             <th>Trajectory / Profile</th>
+              <th>Expectancy</th>
               <th>Failure</th>
             </tr>
           </thead>
@@ -969,11 +1175,33 @@ function findSymbol(symbol) {
 }
 
 function selectSymbol(symbol) {
+  const layout = document.getElementById("mainLayout");
+
+  if (SELECTED_SYMBOL === symbol) {
+    SELECTED_SYMBOL = null;
+    renderDetail(null);
+
+    if (layout) layout.classList.add("sidebar-closed");
+
+    document.querySelectorAll("tr.selected").forEach(row => {
+      row.classList.remove("selected");
+    });
+
+    return;
+  }
+
   SELECTED_SYMBOL = symbol;
   renderDetail(findSymbol(symbol));
 
-  document.querySelectorAll("tr.selected").forEach(row => row.classList.remove("selected"));
-  document.querySelectorAll(`tr[data-symbol="${CSS.escape(symbol)}"]`).forEach(row => row.classList.add("selected"));
+  if (layout) layout.classList.remove("sidebar-closed");
+
+  document.querySelectorAll("tr.selected").forEach(row => {
+    row.classList.remove("selected");
+  });
+
+  document.querySelectorAll(`tr[data-symbol="${CSS.escape(symbol)}"]`).forEach(row => {
+    row.classList.add("selected");
+  });
 }
 
 function renderSections(data) {
@@ -1000,20 +1228,6 @@ async function loadBoard() {
 
     renderSummary(data);
     renderSections(data);
-
-    if (!SELECTED_SYMBOL) {
-      const board = data.board || {};
-      const first =
-        (board.ACTION_CONFIRMING || [])[0] ||
-        (board.ACTION_WATCH || [])[0] ||
-        (board.ACTION_CAUTION || [])[0] ||
-        (board.ACTION_RISK_OFF || [])[0];
-
-      if (first && first.symbol) {
-        SELECTED_SYMBOL = first.symbol;
-        renderDetail(first);
-      }
-    }
 
     document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString();
   } catch (e) {
