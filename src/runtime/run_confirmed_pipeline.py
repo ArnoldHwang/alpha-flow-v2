@@ -15,6 +15,11 @@ STEPS = [
         "required": True,
     },
     {
+        "name": "BUILD SNAPSHOTS",
+        "cmd": [sys.executable, "src/snapshots/build_snapshots.py"],
+        "required": True,
+    },
+    {
         "name": "BUILD TIMEFRAME STATES",
         "cmd": [sys.executable, "src/states/build_timeframe_states.py"],
         "required": True,
@@ -55,21 +60,6 @@ STEPS = [
             sys.executable,
             "src/survivability/build_timeframe_expectancy_profile.py",
         ],
-        "required": True,
-    },
-    {
-        "name": "BUILD LIVE STATE CACHE",
-        "cmd": [sys.executable, "src/live/build_live_state_engine.py"],
-        "required": True,
-    },
-    {
-        "name": "BUILD LIVE PRICE FEED",
-        "cmd": [sys.executable, "src/live/live_price_feed.py"],
-        "required": True,
-    },
-    {
-        "name": "BUILD LIVE + CONFIRMED MERGE",
-        "cmd": [sys.executable, "src/live/build_live_confirmed_merge_engine.py"],
         "required": True,
     },
     {
