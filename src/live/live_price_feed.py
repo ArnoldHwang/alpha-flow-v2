@@ -2,11 +2,15 @@
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
-import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
@@ -25,15 +29,25 @@ LIVE_STATES_DIR = ROOT / "data" / "live_states"
 OUTPUT_PATH = LIVE_FEED_DIR / "live_quotes.json"
 BOARD_PATH = LIVE_STATES_DIR / "_live_decision_board.json"
 
-BATCH_SIZE = 10
-REQUEST_SLEEP_SEC = 3
-SYMBOL_LIMIT = 30
+BATCH_SIZE = int(os.getenv("LIVE_FEED_BATCH_SIZE", "10"))
+REQUEST_SLEEP_SEC = float(os.getenv("LIVE_FEED_REQUEST_SLEEP_SEC", "3"))
+SYMBOL_LIMIT = int(os.getenv("LIVE_FEED_SYMBOL_LIMIT", "30"))
 
 ALPACA_FEED = os.getenv("ALPACA_FEED", "iex").strip().lower()
 
+NY_TZ = ZoneInfo("America/New_York")
+
+
+def now_utc_dt():
+    return datetime.now(timezone.utc)
+
 
 def now_utc():
-    return datetime.now(timezone.utc).isoformat()
+    return now_utc_dt().isoformat()
+
+
+def now_ny():
+    return now_utc_dt().astimezone(NY_TZ)
 
 
 def safe_float(value, default=0.0):
@@ -43,6 +57,18 @@ def safe_float(value, default=0.0):
         return float(value)
     except Exception:
         return default
+
+
+def safe_str(value, default=""):
+    if value is None:
+        return default
+
+    text = str(value).strip()
+
+    if text == "" or text.lower() == "nan":
+        return default
+
+    return text
 
 
 def load_json(path, default):
@@ -82,7 +108,85 @@ def calc_close_position(price, low, high):
     return round((price - low) / (high - low), 4)
 
 
+def parse_dt(value):
+    if value is None:
+        return None
+
+    try:
+        text = str(value).strip()
+
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+
+        dt = datetime.fromisoformat(text)
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def seconds_since(value):
+    dt = parse_dt(value)
+
+    if dt is None:
+        return None
+
+    return round((now_utc_dt() - dt).total_seconds(), 2)
+
+
+def classify_market_session():
+    """
+    미국 정규장/프리/애프터/장외 구분.
+
+    한국 시간 기준으로 생각하지 않고
+    New York 시간 기준으로 판단한다.
+
+    REGULAR:
+      09:30 ~ 16:00 ET
+
+    PREMARKET:
+      04:00 ~ 09:30 ET
+
+    AFTER_HOURS:
+      16:00 ~ 20:00 ET
+
+    CLOSED:
+      그 외 시간 / 주말
+    """
+    dt = now_ny()
+
+    if dt.weekday() >= 5:
+        return "CLOSED"
+
+    minutes = dt.hour * 60 + dt.minute
+
+    pre_start = 4 * 60
+    regular_start = 9 * 60 + 30
+    regular_end = 16 * 60
+    after_end = 20 * 60
+
+    if pre_start <= minutes < regular_start:
+        return "PREMARKET"
+
+    if regular_start <= minutes < regular_end:
+        return "REGULAR"
+
+    if regular_end <= minutes < after_end:
+        return "AFTER_HOURS"
+
+    return "CLOSED"
+
+
+def is_realtime_session(session):
+    return session in {"REGULAR", "PREMARKET", "AFTER_HOURS"}
+
+
 def is_alpaca_stock_symbol(symbol):
+    symbol = safe_str(symbol).upper()
+
     if not symbol:
         return False
 
@@ -115,33 +219,32 @@ def is_alpaca_stock_symbol(symbol):
     return True
 
 
-def load_latest_confirmed_close(symbol):
-    """
-    최근 확정 일봉 close 사용.
-    move 계산 핵심.
-    """
-
+def load_latest_confirmed_daily_row(symbol):
     path = RAW_DAILY_DIR / f"{symbol}.json"
 
     if not path.exists():
-        return None
+        return {}
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        if not isinstance(data, list):
-            return None
-
-        if len(data) == 0:
-            return None
+        if not isinstance(data, list) or len(data) == 0:
+            return {}
 
         last = data[-1]
 
-        return safe_float(last.get("close") or last.get("adjClose"))
+        if not isinstance(last, dict):
+            return {}
 
+        return last
     except Exception:
-        return None
+        return {}
+
+
+def load_latest_confirmed_close(symbol):
+    row = load_latest_confirmed_daily_row(symbol)
+    return safe_float(row.get("close") or row.get("adjClose"), None)
 
 
 def extract_top_symbols_from_board():
@@ -170,13 +273,12 @@ def extract_top_symbols_from_board():
             if not isinstance(row, dict):
                 continue
 
-            symbol = row.get("symbol")
+            symbol = safe_str(row.get("symbol")).upper()
 
             if not is_alpaca_stock_symbol(symbol):
                 continue
 
             score = safe_float(row.get("score", row.get("livePressureScore", 0)))
-
             move = safe_float(row.get("move", row.get("dayChangePct", 0)))
 
             candidates.append(
@@ -213,7 +315,7 @@ def load_fallback_symbols():
 
     if RAW_DAILY_DIR.exists():
         for path in RAW_DAILY_DIR.glob("*.json"):
-            symbol = path.stem.strip()
+            symbol = path.stem.strip().upper()
 
             if symbol and is_alpaca_stock_symbol(symbol):
                 symbols.append(symbol)
@@ -249,30 +351,48 @@ def load_previous_quotes():
         return {}
 
 
-def normalize_alpaca_bar(symbol, bar, previous=None):
+def normalize_alpaca_bar(symbol, bar, previous=None, market_session="UNKNOWN"):
     if previous is None:
         previous = {}
 
-    price = safe_float(bar.get("c"))
-    open_price = safe_float(bar.get("o"))
-    high = safe_float(bar.get("h"))
-    low = safe_float(bar.get("l"))
-    volume = safe_float(bar.get("v"))
+    price = safe_float(bar.get("c"), None)
+    open_price = safe_float(bar.get("o"), None)
+    high = safe_float(bar.get("h"), None)
+    low = safe_float(bar.get("l"), None)
+    volume = safe_float(bar.get("v"), None)
 
-    confirmed_close = load_latest_confirmed_close(symbol)
+    confirmed_daily = load_latest_confirmed_daily_row(symbol)
+    confirmed_close = safe_float(
+        confirmed_daily.get("close") or confirmed_daily.get("adjClose"),
+        None,
+    )
 
-    # 핵심 수정:
-    # move = 현재가 vs 최근 확정 종가
     day_change_pct = calc_pct(price, confirmed_close)
-
     intraday_from_open_pct = calc_pct(price, open_price)
     close_position = calc_close_position(price, low, high)
+
+    alpaca_bar_time = bar.get("t")
+    quote_freshness_sec = seconds_since(alpaca_bar_time)
+
+    is_realtime = price is not None and market_session in {
+        "REGULAR",
+        "PREMARKET",
+        "AFTER_HOURS",
+    }
+
+    if quote_freshness_sec is not None and quote_freshness_sec > 1800:
+        is_realtime = False
+
+    data_status = "REALTIME" if is_realtime else "DELAYED_OR_SESSION_CLOSED"
 
     return {
         "symbol": symbol,
         "provider": "alpaca",
         "status": "OK" if price is not None else "ERROR",
-        "marketState": "UNKNOWN",
+        "dataStatus": data_status,
+        "marketSession": market_session,
+        "isRealtime": bool(is_realtime),
+        "quoteFreshnessSec": quote_freshness_sec,
         "currency": previous.get("currency", "USD"),
         "exchangeName": previous.get("exchangeName"),
         "instrumentType": previous.get("instrumentType", "EQUITY"),
@@ -299,52 +419,113 @@ def normalize_alpaca_bar(symbol, bar, previous=None):
             and close_position is not None
             and close_position <= 0.35
         ),
-        "alpacaBarTime": bar.get("t"),
+        "alpacaBarTime": alpaca_bar_time,
         "alpacaVwap": bar.get("vw"),
         "alpacaTradeCount": bar.get("n"),
         "confirmedClose": confirmed_close,
+        "confirmedDate": confirmed_daily.get("date"),
         "fetchedAtUtc": now_utc(),
     }
 
 
-def build_stale_row(symbol, previous, error):
-    row = dict(previous)
+def build_stale_row(symbol, previous, error, market_session):
+    row = dict(previous or {})
 
-    row["status"] = "STALE_OK"
+    row["symbol"] = symbol
     row["provider"] = row.get("provider", "alpaca")
+    row["status"] = "STALE_OK"
+    row["dataStatus"] = "STALE"
+    row["marketSession"] = market_session
+    row["isRealtime"] = False
     row["staleReason"] = str(error)
     row["lastFetchFailedAtUtc"] = now_utc()
+
+    last_fetch_time = row.get("fetchedAtUtc") or row.get("alpacaBarTime")
+    row["quoteFreshnessSec"] = seconds_since(last_fetch_time)
 
     return row
 
 
-def build_error_row(symbol, error):
+def build_closed_session_row(symbol, previous, market_session):
+    confirmed_daily = load_latest_confirmed_daily_row(symbol)
+    confirmed_close = safe_float(
+        confirmed_daily.get("close") or confirmed_daily.get("adjClose"),
+        None,
+    )
+
+    if previous:
+        row = dict(previous)
+    else:
+        row = {
+            "symbol": symbol,
+            "provider": "alpaca",
+            "regularMarketPrice": confirmed_close,
+            "regularMarketPreviousClose": confirmed_close,
+            "dayChangePct": 0,
+        }
+
+    row["symbol"] = symbol
+    row["status"] = "CLOSED_OK"
+    row["dataStatus"] = "SESSION_CLOSED"
+    row["marketSession"] = market_session
+    row["isRealtime"] = False
+    row["confirmedClose"] = confirmed_close
+    row["confirmedDate"] = confirmed_daily.get("date")
+    row["fetchedAtUtc"] = now_utc()
+    row["quoteFreshnessSec"] = seconds_since(
+        row.get("alpacaBarTime") or row.get("fetchedAtUtc")
+    )
+    row["staleReason"] = "market session closed; using confirmed/stale quote context"
+
+    return row
+
+
+def build_error_row(symbol, error, market_session):
+    confirmed_close = load_latest_confirmed_close(symbol)
+
     return {
         "symbol": symbol,
         "provider": "alpaca",
         "status": "ERROR",
+        "dataStatus": "ERROR",
+        "marketSession": market_session,
+        "isRealtime": False,
         "error": str(error),
-        "regularMarketPrice": None,
-        "dayChangePct": None,
+        "regularMarketPrice": confirmed_close,
+        "regularMarketPreviousClose": confirmed_close,
+        "confirmedClose": confirmed_close,
+        "dayChangePct": 0 if confirmed_close is not None else None,
+        "quoteFreshnessSec": None,
         "fetchedAtUtc": now_utc(),
     }
 
 
+def should_fetch_from_alpaca(market_session):
+    """
+    월요금 절약/에러 감소 방향:
+    CLOSED에서는 굳이 Alpaca latest bar를 무리하게 때리지 않는다.
+    정규장/프리/애프터에서만 fetch한다.
+    """
+    return market_session in {"REGULAR", "PREMARKET", "AFTER_HOURS"}
+
+
 def main():
     print("=================================")
-    print("🔥 LIVE PRICE FEED - ALPACA")
+    print("🔥 LIVE PRICE FEED - ALPACA SESSION AWARE")
     print("=================================")
 
-    LIVE_FEED_DIR.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    LIVE_FEED_DIR.mkdir(parents=True, exist_ok=True)
+
+    market_session = classify_market_session()
+    fetch_enabled = should_fetch_from_alpaca(market_session)
 
     symbols = load_symbols()
     previous_quotes = load_previous_quotes()
 
     print(f"provider: alpaca")
     print(f"feed: {ALPACA_FEED}")
+    print(f"marketSession: {market_session}")
+    print(f"fetchEnabled: {fetch_enabled}")
     print(f"symbols: {len(symbols)}")
     print(f"batchSize: {BATCH_SIZE}")
     print("watchSymbols:", ", ".join(symbols))
@@ -353,99 +534,113 @@ def main():
 
     ok_count = 0
     stale_count = 0
+    closed_count = 0
     error_count = 0
 
-    for batch_index, batch in enumerate(
-        chunk_list(symbols, BATCH_SIZE),
-        start=1,
-    ):
-        print("")
-        print(f"batch {batch_index}: {len(batch)} symbols")
+    if not fetch_enabled:
+        for symbol in symbols:
+            previous = previous_quotes.get(symbol)
 
-        try:
-            bars = fetch_alpaca_latest_bars_with_retry(
-                symbols=batch,
-                feed=ALPACA_FEED,
+            rows_by_symbol[symbol] = build_closed_session_row(
+                symbol=symbol,
+                previous=previous,
+                market_session=market_session,
             )
 
-            for symbol in batch:
-                bar = bars.get(symbol)
+            closed_count += 1
 
-                if bar:
-                    row = normalize_alpaca_bar(
-                        symbol=symbol,
-                        bar=bar,
-                        previous=previous_quotes.get(symbol),
-                    )
+    else:
+        for batch_index, batch in enumerate(chunk_list(symbols, BATCH_SIZE), start=1):
+            print("")
+            print(f"batch {batch_index}: {len(batch)} symbols")
 
-                    if row["status"] == "OK":
-                        ok_count += 1
+            try:
+                bars = fetch_alpaca_latest_bars_with_retry(
+                    symbols=batch,
+                    feed=ALPACA_FEED,
+                )
+
+                for symbol in batch:
+                    bar = bars.get(symbol)
+
+                    if bar:
+                        row = normalize_alpaca_bar(
+                            symbol=symbol,
+                            bar=bar,
+                            previous=previous_quotes.get(symbol),
+                            market_session=market_session,
+                        )
+
+                        if row["status"] == "OK":
+                            ok_count += 1
+                        else:
+                            error_count += 1
+
+                        rows_by_symbol[symbol] = row
+
                     else:
-                        error_count += 1
+                        previous = previous_quotes.get(symbol)
 
-                    rows_by_symbol[symbol] = row
+                        if previous:
+                            rows_by_symbol[symbol] = build_stale_row(
+                                symbol=symbol,
+                                previous=previous,
+                                error="alpaca symbol not returned",
+                                market_session=market_session,
+                            )
+                            stale_count += 1
+                        else:
+                            rows_by_symbol[symbol] = build_error_row(
+                                symbol=symbol,
+                                error="alpaca symbol not returned",
+                                market_session=market_session,
+                            )
+                            error_count += 1
 
-                else:
+            except Exception as e:
+                print(f"❌ batch failed: {e}")
+
+                for symbol in batch:
                     previous = previous_quotes.get(symbol)
 
                     if previous:
                         rows_by_symbol[symbol] = build_stale_row(
-                            symbol,
-                            previous,
-                            "alpaca symbol not returned",
+                            symbol=symbol,
+                            previous=previous,
+                            error=e,
+                            market_session=market_session,
                         )
                         stale_count += 1
                     else:
                         rows_by_symbol[symbol] = build_error_row(
-                            symbol,
-                            "alpaca symbol not returned",
+                            symbol=symbol,
+                            error=e,
+                            market_session=market_session,
                         )
                         error_count += 1
 
-        except Exception as e:
-            print(f"❌ batch failed: {e}")
+            time.sleep(REQUEST_SLEEP_SEC)
 
-            for symbol in batch:
-                previous = previous_quotes.get(symbol)
-
-                if previous:
-                    rows_by_symbol[symbol] = build_stale_row(
-                        symbol,
-                        previous,
-                        e,
-                    )
-                    stale_count += 1
-                else:
-                    rows_by_symbol[symbol] = build_error_row(
-                        symbol,
-                        e,
-                    )
-                    error_count += 1
-
-        time.sleep(REQUEST_SLEEP_SEC)
-
-    rows = [rows_by_symbol[s] for s in symbols]
+    rows = [rows_by_symbol[s] for s in symbols if s in rows_by_symbol]
 
     output = {
         "generatedAt": now_utc(),
         "source": "alpaca_provider",
         "provider": "alpaca",
         "feed": ALPACA_FEED,
+        "marketSession": market_session,
+        "fetchEnabled": fetch_enabled,
         "batchSize": BATCH_SIZE,
         "totalSymbols": len(rows),
         "okCount": ok_count,
         "staleCount": stale_count,
+        "closedCount": closed_count,
         "errorCount": error_count,
         "items": rows,
     }
 
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        json.dump(
-            output,
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
+        json.dump(output, f, ensure_ascii=False, indent=2)
 
     print("")
     print("=================================")
@@ -454,6 +649,7 @@ def main():
 
     print(f"ok: {ok_count}")
     print(f"stale: {stale_count}")
+    print(f"closed: {closed_count}")
     print(f"error: {error_count}")
 
     print("")
@@ -462,10 +658,18 @@ def main():
     for row in rows[:10]:
         print(
             row.get("symbol"),
+            "status=",
+            row.get("status"),
+            "session=",
+            row.get("marketSession"),
+            "realtime=",
+            row.get("isRealtime"),
             "price=",
             row.get("regularMarketPrice"),
             "move=",
             row.get("dayChangePct"),
+            "freshSec=",
+            row.get("quoteFreshnessSec"),
         )
 
 
